@@ -9,7 +9,7 @@ import shutil
 import urllib.request
 import urllib.parse
 import json
-from typing import Dict, Any, Tuple, List
+from typing import Dict, Any, Tuple, List, Optional
 
 # List of predefined interactive actions that require no coding
 SYSTEM_ACTION_PRESETS = [
@@ -75,11 +75,205 @@ SYSTEM_ACTION_PRESETS = [
     }
 ]
 
+# ---------------------------------------------------------------------------
+# Simulasi keyboard & media (dipakai aksi shortcut / text / media)
+# ---------------------------------------------------------------------------
+# GNOME Wayland tidak mengizinkan xdotool, jadi urutan preferensinya:
+# wtype (Wayland) -> ydotool (uinput) -> xdotool (X11).
+KEY_NAME_MAP = {
+    "ENTER": "Return", "ESC": "Escape", "BACKSPACE": "BackSpace", "TAB": "Tab",
+    "SPACE": "space", "UP": "Up", "DOWN": "Down", "LEFT": "Left", "RIGHT": "Right",
+    "HOME": "Home", "END": "End", "PAGE_UP": "Page_Up", "PAGE_DOWN": "Page_Down",
+    "DELETE": "Delete",
+}
+
+
+def _injector() -> str:
+    for candidate in ("wtype", "ydotool", "xdotool"):
+        if shutil.which(candidate):
+            return candidate
+    return ""
+
+
+def _injector_help() -> str:
+    return ("Simulasi keyboard butuh salah satu dari: `wtype` (Wayland, "
+            "sudo apt install wtype), `ydotool` (rekomendasi GNOME Wayland: "
+            "sudo apt install ydotool lalu jalankan daemon `sudo ydotoold` "
+            "atau `systemctl --user start ydotool`), atau `xdotool` (X11).")
+
+
+def _xkey(key: str) -> str:
+    return KEY_NAME_MAP.get(key, key.lower() if len(key) == 1 else key)
+
+
+# ---------------------------------------------------------------------------
+# ydotool memakai keycode Linux/evdev (bukan nama tombol), contoh: 29:1 = press Ctrl
+# ---------------------------------------------------------------------------
+_EVDEV_MODS = {"ctrl": 29, "alt": 56, "shift": 42, "super": 125}
+_EVDEV_KEYS = {
+    "return": 28, "escape": 1, "backspace": 14, "tab": 15, "space": 57,
+    "up": 103, "down": 108, "left": 105, "right": 106,
+    "home": 102, "end": 107, "page_up": 104, "page_down": 109, "delete": 111,
+    "xf86audioplay": 207, "xf86audionext": 163, "xf86audioprev": 165,
+}
+
+
+def _evdev_key(name: str) -> Optional[int]:
+    lower = (name or "").lower()
+    if lower in _EVDEV_KEYS:
+        return _EVDEV_KEYS[lower]
+    if lower.startswith("f") and lower[1:].isdigit():
+        num = int(lower[1:])
+        if 1 <= num <= 24:
+            return 58 + num  # F1=59
+    if len(lower) == 1:
+        code = ord(lower)
+        if "a" <= lower <= "z":
+            return code - 96 + 29  # a=30
+        if lower == "0":
+            return 11
+        if "1" <= lower <= "9":
+            return code - 48 + 1  # 1=2
+    return None
+
+
+def _ydotool_combo(mods: List[str], key: str) -> List[str]:
+    """Bangun argumen `ydotool key` (press lalu release seluruh tombol)."""
+    codes = []
+    for mod in mods:
+        if mod in _EVDEV_MODS:
+            codes.append(_EVDEV_MODS[mod])
+    key_code = _evdev_key(key)
+    if key_code is not None:
+        codes.append(key_code)
+    elif len(codes) == 0:
+        return []
+    args = [f"{code}:1" for code in codes]
+    args += [f"{code}:0" for code in reversed(codes)]
+    return args
+
+
+def _run(cmd: List[str]) -> Tuple[bool, str]:
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=6)
+        if result.returncode == 0:
+            return True, " ".join(cmd[:3])
+        detail = (result.stderr or result.stdout or "").strip().splitlines()
+        return False, detail[0] if detail else f"{cmd[0]} exit {result.returncode}"
+    except FileNotFoundError:
+        return False, f"{cmd[0]} tidak ditemukan"
+    except Exception as exc:
+        return False, str(exc)
+
+
+def _send_text(text: str) -> Tuple[bool, str]:
+    tool = _injector()
+    if not tool:
+        return False, _injector_help()
+    if tool == "wtype":
+        return _run(["wtype", "--", text])
+    if tool == "ydotool":
+        return _run(["ydotool", "type", "--", text])
+    return _run(["xdotool", "type", "--clearmodifiers", "--", text])
+
+
+def _send_shortcut(modifiers: List[str], key: str) -> Tuple[bool, str]:
+    tool = _injector()
+    if not tool:
+        return False, _injector_help()
+    mods = [m for m in MODIFIER_ORDER if m in (modifiers or [])]
+    xkey = _xkey(key or "")
+    if not xkey:
+        return False, "Target key belum dipilih"
+
+    if tool == "wtype":
+        cmd = ["wtype"]
+        for mod in mods:
+            cmd += ["-M", mod]
+        cmd += ["-P", xkey, "-p", xkey]
+        for mod in reversed(mods):
+            cmd += ["-m", mod]
+        return _run(cmd)
+
+    if tool == "ydotool":
+        args = _ydotool_combo(mods, xkey)
+        if not args:
+            return False, f"Key '{key}' tidak dikenali untuk ydotool"
+        return _run(["ydotool", "key", *args])
+
+    combo = "+".join(mods + [xkey])
+    return _run(["xdotool", "key", "--clearmodifiers", combo])
+
+
+MODIFIER_ORDER = ["ctrl", "alt", "shift", "super"]
+
+MEDIA_XF86 = {
+    "PLAY_PAUSE": "XF86AudioPlay",
+    "NEXT_TRACK": "XF86AudioNext",
+    "PREV_TRACK": "XF86AudioPrev",
+}
+
+
+def _send_media(media_key: str) -> Tuple[bool, str]:
+    """Kontrol media: wpctl/pactl untuk volume, playerctl untuk pemutar musik."""
+    if media_key in ("VOL_UP", "VOL_DOWN", "MUTE"):
+        step = "5%+" if media_key == "VOL_UP" else ("5%-" if media_key == "VOL_DOWN" else None)
+        if shutil.which("wpctl"):
+            if step:
+                return _run(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", step])
+            return _run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"])
+        if shutil.which("pactl"):
+            if step:
+                return _run(["pactl", "set-sink-volume", "@DEFAULT_AUDIO_SINK@",
+                             "+5%" if media_key == "VOL_UP" else "-5%"])
+            return _run(["pactl", "set-sink-mute", "@DEFAULT_AUDIO_SINK@", "toggle"])
+
+    if media_key in ("PLAY_PAUSE", "NEXT_TRACK", "PREV_TRACK"):
+        if shutil.which("playerctl"):
+            command = {"PLAY_PAUSE": "play-pause", "NEXT_TRACK": "next",
+                       "PREV_TRACK": "previous"}[media_key]
+            return _run(["playerctl", command])
+
+    # Fallback: tombol media XF86 via simulator keyboard
+    xf86 = MEDIA_XF86.get(media_key)
+    if xf86:
+        tool = _injector()
+        if tool == "wtype":
+            return _run(["wtype", "-P", xf86, "-p", xf86])
+        if tool == "xdotool":
+            return _run(["xdotool", "key", xf86])
+        if tool == "ydotool":
+            args = _ydotool_combo([], xf86)
+            if args:
+                return _run(["ydotool", "key", *args])
+            return False, f"Tombol media '{media_key}' tidak dikenali untuk ydotool"
+    if media_key in ("VOL_UP", "VOL_DOWN", "MUTE"):
+        return False, "Volume butuh wpctl atau pactl (pipewire/pulseaudio)."
+    return False, "Pemutar musik butuh playerctl (sudo apt install playerctl)."
+
+
 def execute_action(action_type: str, action_data: Dict[str, Any]) -> Tuple[bool, str]:
     """Execute a configured action based on its type and payload."""
     try:
+        # 0. Ganti layer Desktop <-> Home Assistant (dihandle firmware via LED)
+        if action_type == 'mode_toggle':
+            return True, "Mode layer diatur oleh firmware macropad (LED)"
+
+        # 0b. Simulasi keyboard / teks / media
+        elif action_type == 'shortcut':
+            return _send_shortcut(action_data.get('modifiers', []), action_data.get('key', ''))
+
+        elif action_type == 'text':
+            text = action_data.get('text', '')
+            if not text:
+                return False, "Teks kosong"
+            return _send_text(text)
+
+        elif action_type == 'media':
+            return _send_media(action_data.get('mediaKey', ''))
+
         # 1. Launch native desktop application
-        if action_type == 'launch_app':
+        elif action_type == 'launch_app':
             from app_scanner import launch_app
             desktop_id = action_data.get('desktopId') or action_data.get('path')
             return launch_app(desktop_id)

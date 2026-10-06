@@ -78,8 +78,8 @@ DOMAIN_ICONS: Dict[str, str] = {
 }
 DEFAULT_ICON = "package"
 
-# Icon bawaan Home Assistant (format "mdi:xxx") -> nama ikon Lucide yang
-# tersedia di sprite frontend (web-configurator/index.html).
+# Icon bawaan Home Assistant (format "mdi:xxx") -> nama ikon internal aplikasi
+# (dipakai sebagai label ikon entitas; UI memakai ikon tema GTK bila tersedia).
 MDI_ICON_ALIASES: Dict[str, str] = {
     "lightbulb": "lightbulb", "lightbulb-outline": "lightbulb", "lamp": "lightbulb",
     "ceiling-light": "lightbulb", "wall-sconce": "lightbulb",

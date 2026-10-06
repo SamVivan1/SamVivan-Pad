@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+"""
+SamVivan MacroPad - State runtime aplikasi (tanpa dependensi GTK).
+
+Semua UI berlangganan perubahan lewat subscribe(); modul ini tidak mengimpor
+gi/Gtk agar bisa dipakai dari mana pun (termasuk unit test).
+"""
+
+from typing import Any, Callable, Dict, List, Optional
+
+import config as config_module
+
+# ---------------------------------------------------------------------------
+# Data
+# ---------------------------------------------------------------------------
+cfg: Dict[str, Any] = config_module.load_config()
+mode_index: int = 0          # 0 = Desktop, 1 = Home Assistant
+selected_index: int = 0      # tombol B1..B8 yang sedang diedit (0-7)
+dirty: bool = False          # ada perubahan belum disimpan
+
+installed_apps: List[Dict[str, str]] = []
+system_presets: List[Dict[str, Any]] = []
+ha_entities: List[Dict[str, Any]] = []
+ha_entity_source: str = "empty"   # "live" | "cache" | "empty"
+ha_connected: bool = False
+ha_message: str = ""
+
+serial_port: Optional[str] = None
+serial_connected: bool = False
+
+listener: Any = None         # SerialDaemonListener (diisi main.py)
+
+_subscribers: List[Callable[..., None]] = []
+
+
+# ---------------------------------------------------------------------------
+# Bus sederhana
+# ---------------------------------------------------------------------------
+def subscribe(callback: Callable[..., None]) -> Callable[..., None]:
+    _subscribers.append(callback)
+    return callback
+
+
+def emit(event: str, **data: Any) -> None:
+    for callback in list(_subscribers):
+        try:
+            callback(event, **data)
+        except Exception as exc:  # UI tidak boleh mematikan listener
+            print(f"[STATE] subscriber {callback} gagal: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# Mutator
+# ---------------------------------------------------------------------------
+def current_mode() -> Dict[str, Any]:
+    return cfg["modes"][mode_index]
+
+
+def current_button() -> Dict[str, Any]:
+    return config_module.get_button(cfg, mode_index, selected_index)
+
+
+def mark_dirty() -> None:
+    global dirty
+    dirty = True
+    emit("dirty-changed", dirty=dirty)
+
+
+def set_config(new_config: Dict[str, Any], source: str = "editor") -> None:
+    """Ganti seluruh konfigurasi (import/preset/reset) lalu terapkan."""
+    global cfg, dirty
+    cfg = new_config
+    dirty = True
+    if listener is not None:
+        try:
+            listener.config = cfg
+        except Exception as exc:
+            print(f"[STATE] gagal menerapkan config ke listener: {exc}")
+    emit("config-replaced", source=source)
+
+
+def set_label(text: str) -> None:
+    current_button()["label"] = text
+    mark_dirty()
+    emit("button-changed", index=selected_index)
+
+
+def set_action(trigger: str, action: Dict[str, Any]) -> None:
+    current_button()[trigger] = action
+    mark_dirty()
+    emit("button-changed", index=selected_index)
+
+
+def set_timing(field: str, value: int) -> None:
+    cfg[field] = value
+    mark_dirty()
+    emit("timing-changed", field=field, value=value)
+
+
+def set_mode(index: int) -> None:
+    global mode_index
+    if index == mode_index:
+        return
+    mode_index = index
+    cfg["activeModeIndex"] = index
+    emit("mode-changed", mode_index=index)
+
+
+def select_button(index: int) -> None:
+    global selected_index
+    if index == selected_index:
+        return
+    selected_index = index
+    emit("selection-changed", index=index)
+
+
+def save() -> bool:
+    """Simpan ke disk dan aktifkan listener (jalur eksekusi aksi)."""
+    global dirty
+    ok = config_module.save_config(cfg)
+    if ok:
+        dirty = False
+        if listener is not None:
+            try:
+                listener.config = cfg
+            except Exception as exc:
+                print(f"[STATE] gagal sinkron ke listener: {exc}")
+        emit("config-saved", ok=True)
+    else:
+        emit("config-saved", ok=False)
+    return ok
+
+
+def set_apps(apps: List[Dict[str, str]]) -> None:
+    global installed_apps
+    installed_apps = apps
+    emit("apps-changed", count=len(apps))
+
+
+def set_ha_entities(entities: List[Dict[str, Any]], source: str) -> None:
+    global ha_entities, ha_entity_source
+    ha_entities = entities
+    ha_entity_source = source
+    emit("ha-entities-changed", count=len(entities), source=source)
+
+
+def set_ha_status(connected: bool, message: str) -> None:
+    global ha_connected, ha_message
+    ha_connected = connected
+    ha_message = message
+    emit("ha-status-changed", connected=connected, message=message)
+
+
+def set_serial_status(connected: bool, port: Optional[str]) -> None:
+    global serial_connected, serial_port
+    if connected == serial_connected and port == serial_port:
+        return
+    serial_connected = connected
+    serial_port = port
+    emit("serial-status-changed", connected=connected, port=port)

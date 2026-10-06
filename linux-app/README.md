@@ -1,13 +1,30 @@
 # 🎛️ SamVivan MacroPad - Native Linux Desktop Application
 
-Aplikasi desktop native untuk Linux Ubuntu (seperti **Razer Synapse, Logitech G Hub, Vial, Piper, atau OpenRGB**).
+Aplikasi desktop native untuk Linux Ubuntu (seperti **Razer Synapse, Logitech G Hub, Vial, Piper, atau OpenRGB**),
+dibangun dengan **GTK4 + Libadwaita** (HIG GNOME).
 
 Aplikasi ini **bukan daemon yang terus berjalan di background**, melainkan aplikasi desktop mandiri:
 * Muncul di **Menu Aplikasi Ubuntu** (Dash / App Launcher).
-* Membuka jendela aplikasi native GTK3 dengan akselerasi hardware.
-* Memindai aplikasi terpasang di sistem Ubuntu secara otomatis (142 aplikasi).
+* Membuka jendela aplikasi native GTK4 dengan akselerasi hardware.
+* Memindai aplikasi terpasang di sistem Ubuntu secara otomatis (file `.desktop`).
 * Memungkinkan konfigurasi tombol, aksi shortcut, peluncur aplikasi, dan otomasi audio.
+* Listener serial berjalan di dalam proses yang sama — eksekusi aksi langsung dari Python,
+  tanpa server HTTP lokal.
 * Saat jendela ditutup, seluruh proses aplikasi berhenti dengan bersih.
+
+---
+
+## 📖 Halaman Aplikasi
+
+| Halaman | Isi |
+| :--- | :--- |
+| **Tombol** | Grid 8 keycap visual (index, GPIO, label, 3 chip trigger), switch mode *Desktop / Home Assistant*, dan inspector aksi per trigger (Single, Double, Hold). |
+| **Console Serial** | Log hardware real-time dengan pewarnaan + input untuk mengirim perintah ke macropad. |
+| **Profil** | Simpan (Ctrl+S), impor & ekspor profil JSON, dan terapkan preset bawaan. |
+| **Pengaturan** | Parameter timing (debounce / click / hold), koneksi Home Assistant, pindai ulang aplikasi, dan info aplikasi. |
+
+Juga tersedia di header: pill **Serial** (klik → buka console), pill **HA** (klik → dialog koneksi),
+dan tombol **Simpan**.
 
 ---
 
@@ -67,20 +84,55 @@ Detail teknis:
   (fallback baca: `~/.config/home-assistant/env`, format `HA_URL=` / `HA_TOKEN=`).
 - Hasil scan entity di-cache di `~/.config/samvivan-macropad/ha_entities_cache.json`
   sehingga daftar tetap tampil walau HA sedang offline (`live: false`).
-- Modul: [`home_assistant.py`](home_assistant.py) (`HomeAssistantClient`).
-- Endpoint lokal:
-  - `GET /api/ha/status` — instan dari cache; `?ping=1` untuk cek live (timeout 1 dtk).
-  - `GET /api/ha/config`, `POST /api/ha/config` — simpan/baca URL + token.
-  - `GET /api/ha/entities[?refresh=1]` — daftar entity (cache / scan ulang).
-  - `POST /api/ha/test` — uji koneksi dengan URL + token yang belum disimpan.
-  - `POST /api/ha/call` — panggil service HA (`domain`, `service`, `entity_id`).
-- Ikon domain memakai set ikon **Lucide** (sama dengan shadcn/ui), termasuk pemetaan
-  `mdi:*` dari atribut icon Home Assistant.
+- Modul: [`home_assistant.py`](home_assistant.py) (`HomeAssistantClient`) — dipanggil
+  **langsung** dari UI dan listener; tidak ada endpoint HTTP lokal yang disiapkan.
+- Ikon domain/entity memakai ikon tema GTK/Adwaita dengan fallback otomatis
+  (UI bebas emoji).
 - Setiap eksekusi aksi HA mengirim notifikasi desktop via `notify-send`.
 - Jika HA tidak terjangkau, daftar entity jatuh ke cache terakhir di disk; scan ulang
-  otomatis ditahan 30 detik supaya endpoint tetap instan.
+  otomatis ditahan 30 detik supaya respons UI tetap instan.
 
 ---
+
+## 🔌 Console Serial
+
+* Log masuk otomatis dari listener (`[HARDWARE]`, `[ACTION]`, `[TX]`, error).
+* Klik pill **Serial** di header untuk menuju console.
+* Ketik perintah (mis. `CMD:PING`) lalu **Enter / Kirim** untuk mengirimkannya
+  ke macropad melalui port yang sedang terbuka.
+* Port dicari otomatis di `/dev/ttyACM*` dan `/dev/ttyUSB*` (115200 Baud),
+  auto-reconnect bila kabel dicabut.
+
+---
+
+
+## ⌨️ Simulasi Shortcut & Teks (Injeksi Keyboard)
+
+Aksi `Shortcut` dan `Ketik Teks` membutuhkan alat simulasi keyboard untuk mengirim input ke jendela aktif.
+Karena GNOME Wayland membatasi injeksi input, aplikasi menggunakan urutan prioritas otomatis:
+
+1. `wtype` (direkomendasikan Wayland modern, berbasis wlroots)
+2. `ydotool` (uinput, bekerja di sebagian besar session Wayland/GNOME — membutuhkan daemon)
+3. `xdotool` (X11 saja)
+
+### Instalasi (Ubuntu)
+
+```bash
+# Opsi A – wtype
+sudo apt install wtype
+
+# Opsi B – ydotool (rekomendasi GNOME Wayland 44+)
+sudo apt install ydotool
+# Jalankan daemon uinput
+systemctl --user enable --now ydotool
+# atau: sudo ydotoold &
+
+# Opsi C – xdotool (hanya untuk X11 / XWayland)
+sudo apt install xdotool
+```
+
+**Catatan ydotool**: beberapa versi membutuhkan akses uinput; pastikan `ydotoold` berjalan agar shortcut/ketik teks bisa bekerja.
+
 
 ## 🗑️ Cara Uninstall
 

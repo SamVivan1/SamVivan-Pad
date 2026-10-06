@@ -1,104 +1,140 @@
 #!/usr/bin/env python3
 """
-SamVivan MacroPad - Native Linux Peripheral Desktop Application
-Standard standalone Linux desktop application (like Piper, OpenRGB, Vial, Razer Synapse).
+SamVivan MacroPad - Aplikasi native Linux (GTK4 + Libadwaita).
+
+Semua fitur dijalankan langsung dari Python: listener serial, eksekusi aksi,
+pemetaan tombol, dan Home Assistant REST — tanpa server HTTP dan tanpa web.
 """
 
-import os
+import re
 import sys
-import time
-import shutil
-import subprocess
 
-from server import start_backend, stop_backend
+import gi
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+from gi.repository import Gtk, Adw, Gio, GLib, Gdk  # noqa: E402
 
-APP_DIR = os.path.dirname(os.path.abspath(__file__))
-ICON_PATH = os.path.join(APP_DIR, 'samvivan-macropad.svg')
+_BUTTON_RE = re.compile(
+    r"\[(DESKTOP|HA)\]\s+Button\s+(\d+)\s+->\s+(SINGLE|DOUBLE|HOLD)",
+    re.IGNORECASE,
+)
 
-def run_gtk_native_app(url: str):
-    """Run native GTK3 + WebKit2 window with Ubuntu desktop integration."""
-    import gi
-    gi.require_version('Gtk', '3.0')
-    gi.require_version('WebKit2', '4.1')
-    from gi.repository import Gtk, Gdk, WebKit2, Gio
 
-    # Initialize GTK Application Window
-    win = Gtk.Window(title="SamVivan MacroPad")
-    win.set_default_size(1180, 780)
-    win.set_position(Gtk.WindowPosition.CENTER)
-    win.set_wmclass("samvivan-macropad", "SamVivan MacroPad")
+# ---------------------------------------------------------------------------
+# Event serial (dipanggil dari thread listener → pindah ke main loop GTK)
+# ---------------------------------------------------------------------------
+def _handle_serial_line(line: str) -> bool:
+    import state
 
-    # Set Window Icon
-    if os.path.exists(ICON_PATH):
-        try:
-            win.set_icon_from_file(ICON_PATH)
-        except Exception:
-            pass
+    state.emit("serial-log", line=line)
 
-    # WebKit2 Settings
-    settings = WebKit2.Settings()
-    settings.set_enable_developer_extras(False)
-    settings.set_enable_webgl(True)
-    settings.set_enable_smooth_scrolling(True)
+    upper = line.upper()
+    if "MODE: HOME ASSISTANT" in upper:
+        state.set_mode(1)
+    elif "MODE: DESKTOP" in upper:
+        state.set_mode(0)
 
-    webview = WebKit2.WebView.new_with_settings(settings)
-    webview.load_uri(url)
+    match = _BUTTON_RE.search(line)
+    if match:
+        firmware_mode = 1 if match.group(1).upper() == "HA" else 0
+        if firmware_mode != state.mode_index:
+            state.set_mode(firmware_mode)
+        state.emit("hardware-event",
+                   index=int(match.group(2)) - 1,
+                   trigger=match.group(3).lower())
+    return False
 
-    # Scrolled window container
-    scrolled = Gtk.ScrolledWindow()
-    scrolled.add(webview)
-    win.add(scrolled)
 
-    # Clean shutdown on window close
-    def on_window_close(*args):
-        print("[*] Closing SamVivan MacroPad...")
-        stop_backend()
-        Gtk.main_quit()
-        sys.exit(0)
+def _on_serial_line(line: str) -> None:
+    GLib.idle_add(_handle_serial_line, line)
 
-    win.connect("delete-event", on_window_close)
-    win.connect("destroy", on_window_close)
 
-    win.show_all()
-    print("[*] Native desktop window opened.")
-    Gtk.main()
+# ---------------------------------------------------------------------------
+# Pramuat data di background (tidak pernah memblokir main loop)
+# ---------------------------------------------------------------------------
+def _refresh_ha_status() -> None:
+    from home_assistant import ha_client
+    import state
+    from ui import util
 
-def run_browser_app_mode(url: str):
-    """Fallback: Launch as standalone app window using Brave, Chromium, or Chrome."""
-    browsers = ['brave-browser', 'google-chrome', 'chromium-browser']
-    for b in browsers:
-        if shutil.which(b):
-            print(f"[*] Launching standalone window via {b}...")
-            p = subprocess.Popen([b, f"--app={url}", "--class=samvivan-macropad"], start_new_session=True)
-            p.wait()
-            stop_backend()
-            sys.exit(0)
+    status = ha_client.get_status(ping=False)
+    if isinstance(status, dict):
+        state.set_ha_status(bool(status.get("connected")),
+                            str(status.get("message", "")))
 
-    # Generic fallback
-    import webbrowser
-    print("[*] Launching in default web browser...")
-    webbrowser.open(url)
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        stop_backend()
+    def done(result) -> None:
+        if isinstance(result, dict):
+            state.set_ha_status(bool(result.get("connected")),
+                                str(result.get("message", "")))
 
-def main():
-    print("=" * 60)
-    print(" SamVivan MacroPad - Native Linux Application")
-    print("=" * 60)
+    util.run_async(lambda: ha_client.get_status(ping=True), done)
 
-    # 1. Start internal peripheral server
-    port = start_backend(8080)
-    app_url = f"http://127.0.0.1:{port}"
 
-    # 2. Try native GTK3 + WebKit2 window first
-    try:
-        run_gtk_native_app(app_url)
-    except Exception as e:
-        print(f"[!] Native GTK window failed ({e}), falling back to standalone app mode...")
-        run_browser_app_mode(app_url)
+def _preload_apps() -> None:
+    from app_scanner import get_installed_apps
+    import state
+    from ui import util
 
-if __name__ == '__main__':
-    main()
+    def done(result) -> None:
+        state.set_apps(result if isinstance(result, list) else [])
+
+    util.run_async(get_installed_apps, done)
+
+
+# ---------------------------------------------------------------------------
+# Aplikasi
+# ---------------------------------------------------------------------------
+class MacroPadApplication(Adw.Application):
+    def __init__(self) -> None:
+        super().__init__(application_id="com.samvivan.macropad",
+                         flags=0)
+        self.listener = None
+
+    def do_startup(self) -> None:
+        Adw.Application.do_startup(self)
+
+        from ui.css import load_css
+        Adw.StyleManager.get_default().set_color_scheme(
+            Adw.ColorScheme.FORCE_DARK)
+        display = Gdk.Display.get_default()
+        if display is not None:
+            load_css(display)
+
+        self.set_accels_for_action("win.save", ["<Control>s"])
+        self.set_accels_for_action("app.quit", ["<Control>q"])
+        quit_action = Gio.SimpleAction.new("quit", None)
+        quit_action.connect("activate", lambda *_: self.quit())
+        self.add_action(quit_action)
+
+        from serial_listener import SerialDaemonListener
+        import state
+
+        self.listener = SerialDaemonListener(on_event_callback=_on_serial_line)
+        state.listener = self.listener
+        self.listener.start()
+
+        _refresh_ha_status()
+        _preload_apps()
+
+    def do_activate(self) -> None:
+        from ui.window import MacroPadWindow
+        window = self.get_active_window()
+        if window is None:
+            window = MacroPadWindow(self)
+        window.present()
+
+    def do_shutdown(self) -> None:
+        if self.listener is not None:
+            try:
+                self.listener.stop()
+            except Exception as exc:  # noqa: BLE001
+                print(f"[APP] Gagal menghentikan listener: {exc}")
+        Adw.Application.do_shutdown(self)
+
+
+def main() -> int:
+    return MacroPadApplication().run(sys.argv)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
