@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  macropad-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: samvivan-macropad-studio:v2.5
+    container_name: samvivan-macropad-studio
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:80"
+    environment:
+      - TZ=Asia/Jakarta
+    labels:
+      - "com.samvivan.description=SamVivan MacroPad Studio Web Configurator"

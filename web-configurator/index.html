@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SamVivan MacroPad Studio</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%20viewBox=%220%200%20100%20100%22><text y=%22.9em%22 font-size=%2290%22>🎛️</text></svg>">
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo-icon">
+          <span class="logo-dots"></span>
+          <span class="logo-text">SV</span>
+        </div>
+        <div>
+          <h1 class="brand-title">SamVivan MacroPad <span class="badge-version">v2.5</span></h1>
+          <p class="brand-subtitle">Homelab Web Configurator & Live Hardware Studio</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Hardware Connection Status -->
+        <div class="connection-pill" id="connectionPill">
+          <span class="status-indicator" id="statusDot"></span>
+          <span class="status-text" id="statusText">Disconnected</span>
+          <span class="baud-badge">115200</span>
+        </div>
+
+        <button id="btnConnect" class="btn btn-primary">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+          </svg>
+          <span id="btnConnectText">Connect Device</span>
+        </button>
+
+        <button id="btnToggleConsole" class="btn btn-secondary" title="Buka Live Serial Monitor">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="4 17 10 11 4 5"></polyline>
+            <line x1="12" y1="19" x2="20" y2="19"></line>
+          </svg>
+          <span>Monitor</span>
+        </button>
+
+        <div class="dropdown">
+          <button id="btnProfileMenu" class="btn btn-secondary">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+            <span>Profiles</span>
+          </button>
+          <div class="dropdown-menu" id="profileDropdown">
+            <button class="dropdown-item" id="btnExportJson">
+              <span>💾 Simpan / Export JSON</span>
+            </button>
+            <label class="dropdown-item file-label">
+              <span>📂 Import Profil JSON</span>
+              <input type="file" id="fileImportJson" accept=".json" style="display:none;">
+            </label>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-header">Preset Bawaan</div>
+            <button class="dropdown-item preset-option" data-preset="default">Default v2.5 (Desktop & HA)</button>
+            <button class="dropdown-item preset-option" data-preset="productivity">Productivity & Ubuntu</button>
+            <button class="dropdown-item preset-option" data-preset="media">Media & Streaming</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace Grid -->
+    <main class="workspace">
+      <!-- Left Panel: MacroPad Interactive Visualizer -->
+      <section class="panel visualizer-panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Physical Layout Preview</h2>
+            <p class="panel-subtitle">ESP32-C3 SuperMini • 8 Mechanical Switches</p>
+          </div>
+
+          <!-- Active Mode Selector Switch -->
+          <div class="mode-switcher-group">
+            <span class="mode-label">Mode:</span>
+            <div class="tab-pill">
+              <button class="tab-btn active" id="tabDesktopMode" data-mode="0">
+                <span class="tab-led led-desktop"></span>
+                Desktop Mode
+              </button>
+              <button class="tab-btn" id="tabHaMode" data-mode="1">
+                <span class="tab-led led-ha"></span>
+                Home Assistant
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Macropad Board Visual Enclosure -->
+        <div class="macropad-chassis">
+          <div class="chassis-header">
+            <div class="branding-badge">SAMVIVAN PAD</div>
+            <div class="status-led-indicator">
+              <span class="led-bulb" id="boardLedBulb"></span>
+              <span class="led-label" id="boardLedLabel">LED (GPIO 4): ON</span>
+            </div>
+          </div>
+
+          <!-- 8 Mechanical Keys Grid (2 rows x 4 cols matching PCB) -->
+          <div class="keys-grid" id="keysGrid">
+            <!-- Rendered dynamically by JS with GPIO, Label & Actions preview -->
+          </div>
+
+          <div class="chassis-footer">
+            <span class="tech-spec">BLE HID • USB-C • 1000Hz Debounced</span>
+            <span class="live-action-hint" id="liveFeedbackNotice">Ready. Klik tombol untuk mengedit action.</span>
+          </div>
+        </div>
+
+        <!-- Quick Device Actions Bar -->
+        <div class="device-action-bar">
+          <button id="btnReadConfig" class="btn btn-outline" disabled>
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="1 4 1 10 7 10"></polyline>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+            </svg>
+            <span>Read from MacroPad</span>
+          </button>
+          <button id="btnWriteConfig" class="btn btn-success" disabled>
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Flash to MacroPad (Save NVS)</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Right Panel: Key Inspector & Configuration Editor -->
+      <section class="panel inspector-panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title" id="inspectorTitle">Key Inspector: Button 1</h2>
+            <p class="panel-subtitle" id="inspectorSubtitle">Pin: GPIO 20 • Multi-Trigger Configuration</p>
+          </div>
+          <span class="selected-key-badge" id="selectedKeyBadge">B1</span>
+        </div>
+
+        <div class="inspector-body" id="inspectorBody">
+          <!-- Button Label Customizer -->
+          <div class="form-group">
+            <label class="form-label" for="inputButtonLabel">Custom Key Label / Nama Tombol</label>
+            <input type="text" id="inputButtonLabel" class="form-input" placeholder="e.g. Mode / Passcode / Mic Mute">
+          </div>
+
+          <!-- Trigger 1: Single Click -->
+          <div class="trigger-card" data-trigger="single">
+            <div class="trigger-header">
+              <div class="trigger-title-wrap">
+                <span class="trigger-badge badge-single">1x</span>
+                <div>
+                  <h3 class="trigger-name">Single Click</h3>
+                  <p class="trigger-desc">Ditekan 1 kali cepat (timeout 250ms)</p>
+                </div>
+              </div>
+              <select class="form-select action-type-select" id="singleActionType">
+                <option value="shortcut">Keyboard Shortcut</option>
+                <option value="text">Text String / Macro</option>
+                <option value="media">Media Control</option>
+                <option value="mode_toggle">Toggle Mode (Layer Switch)</option>
+                <option value="none">Disabled (None)</option>
+              </select>
+            </div>
+            <div class="trigger-settings" id="singleSettingsContainer">
+              <!-- Injected dynamically based on action type -->
+            </div>
+          </div>
+
+          <!-- Trigger 2: Double Click -->
+          <div class="trigger-card" data-trigger="double">
+            <div class="trigger-header">
+              <div class="trigger-title-wrap">
+                <span class="trigger-badge badge-double">2x</span>
+                <div>
+                  <h3 class="trigger-name">Double Click</h3>
+                  <p class="trigger-desc">Ditekan 2 kali berurutan (LED Blink 2x)</p>
+                </div>
+              </div>
+              <select class="form-select action-type-select" id="doubleActionType">
+                <option value="shortcut">Keyboard Shortcut</option>
+                <option value="text">Text String / Macro</option>
+                <option value="media">Media Control</option>
+                <option value="mode_toggle">Toggle Mode (Layer Switch)</option>
+                <option value="none">Disabled (None)</option>
+              </select>
+            </div>
+            <div class="trigger-settings" id="doubleSettingsContainer">
+              <!-- Injected dynamically based on action type -->
+            </div>
+          </div>
+
+          <!-- Trigger 3: Hold (Long Press) -->
+          <div class="trigger-card" data-trigger="hold">
+            <div class="trigger-header">
+              <div class="trigger-title-wrap">
+                <span class="trigger-badge badge-hold">HOLD</span>
+                <div>
+                  <h3 class="trigger-name">Hold / Long Press</h3>
+                  <p class="trigger-desc">Tahan lebih dari 450ms (LED Blink 3x)</p>
+                </div>
+              </div>
+              <select class="form-select action-type-select" id="holdActionType">
+                <option value="shortcut">Keyboard Shortcut</option>
+                <option value="text">Text String / Macro</option>
+                <option value="media">Media Control</option>
+                <option value="mode_toggle">Toggle Mode (Layer Switch)</option>
+                <option value="none">Disabled (None)</option>
+              </select>
+            </div>
+            <div class="trigger-settings" id="holdSettingsContainer">
+              <!-- Injected dynamically based on action type -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Global Timing Settings Collapsible -->
+        <details class="timing-details">
+          <summary class="timing-summary">
+            <span>⚙️ Hardware Timing Parameters (Debounce & Delays)</span>
+          </summary>
+          <div class="timing-grid">
+            <div class="form-group">
+              <label class="form-label" for="inputDebounce">Debounce (ms)</label>
+              <input type="number" id="inputDebounce" class="form-input" value="25" min="5" max="100">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inputClickTimeout">Click Timeout (ms)</label>
+              <input type="number" id="inputClickTimeout" class="form-input" value="250" min="100" max="800">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="inputHoldTimeout">Hold Timeout (ms)</label>
+              <input type="number" id="inputHoldTimeout" class="form-input" value="450" min="200" max="1500">
+            </div>
+          </div>
+        </details>
+      </section>
+    </main>
+
+    <!-- Bottom Collapsible Live Serial Monitor Drawer -->
+    <div class="console-drawer" id="consoleDrawer">
+      <div class="console-header">
+        <div class="console-title-wrap">
+          <span class="terminal-dot"></span>
+          <span class="console-title">Live Serial Log & Event Monitor (115200 Baud)</span>
+        </div>
+        <div class="console-controls">
+          <button id="btnClearConsole" class="btn btn-xs btn-outline">Clear</button>
+          <button id="btnCloseConsole" class="btn btn-xs btn-outline">Close</button>
+        </div>
+      </div>
+      <div class="console-output" id="consoleOutput">
+        <div class="log-line log-system">[STUDIO] SamVivan MacroPad Web Configurator ready.</div>
+        <div class="log-line log-system">[STUDIO] Hubungkan MacroPad via USB untuk melihat log fisik & upload konfigurasi.</div>
+      </div>
+      <div class="console-input-bar">
+        <input type="text" id="customSerialInput" class="console-input" placeholder="Ketik perintah serial (e.g. CMD:GET_CONFIG, CMD:PING, CMD:RESET)...">
+        <button id="btnSendSerial" class="btn btn-xs btn-primary">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
