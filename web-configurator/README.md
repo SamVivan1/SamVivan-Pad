@@ -25,6 +25,27 @@ Aplikasi ini dapat di-hosting secara mandiri di **Homelab (Docker)** dan diakses
 5. **Profile Management**:
    - Simpan dan muat profil via file JSON (`Export / Import`).
    - Preset bawaan: *Default v2.5*, *Productivity & Ubuntu Shortcuts*, dan *Media & Streaming*.
+6. **Home Assistant Native (Scriptless)**:
+   - Pill **`HA: ...`** di header → modal koneksi **langsung terbuka** (status dibaca dari
+     cache, cek live dilakukan di latar belakang): isi URL + Long-Lived Access Token,
+     **Test Koneksi**, **Simpan**, dan **Muat Ulang Entities**.
+   - Setelah simpan, **Entity Picker** terbuka otomatis: pencarian, filter per domain,
+     status state real-time, lalu klik entity untuk memasangkannya ke tombol.
+   - Pada aksi tombol **Home Assistant (Native)**: pilih service (`toggle`, `turn_on`,
+     `trigger`, `press`, ...), lalu **Test** untuk eksekusi langsung.
+   - **Tanpa hardcode**: tidak ada IP / token / entity bawaan di source — semua URL dan
+     token berasal dari input pengguna, dan daftar tombol mode HA memakai nama generik
+     (`HA Key 1` … `HA Key 7`).
+   - **Tanpa emoji**: seluruh ikon UI memakai sprite **Lucide** (set ikon yang sama
+     dengan shadcn/ui) yang dirender sebagai SVG.
+   - Endpoint backend: `GET /api/ha/status[?ping=1]`, `GET /api/ha/config`,
+     `GET /api/ha/entities[?refresh=1]`, `POST /api/ha/test`,
+     `POST /api/ha/config`, `POST /api/ha/call`.
+
+> **Catatan**: endpoint `/api/*` hanya tersedia saat aplikasi dijalankan lewat
+> [`linux-app/`](../linux-app/README.md) (native desktop app). Versi Docker murni hanya menyajikan
+> file statis — pill HA akan menampilkan *Offline / Standalone* dan konfigurasi tombol tetap bisa disimpan
+> sebagai profil JSON.
 
 ---
 

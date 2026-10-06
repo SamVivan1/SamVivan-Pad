@@ -29,7 +29,11 @@
   - Export & Import profil pemetaan tombol (`.json`).
 - **Dukungan Native Linux Ubuntu**:
   - Siap dihubungkan via BLE Keyboard atau kabel USB Serial.
-  - Cocok diintegrasikan dengan shell script bash, D-Bus, dan webhook Home Assistant.
+  - **Aplikasi desktop native** (GTK3 + WebKit2) — layaknya Vial / OpenRGB, bukan daemon background.
+  - Pemindai aplikasi `.desktop` Ubuntu + peluncur tombol tanpa perlu ngedit script.
+  - **Home Assistant Native**: panggil service HA (`light.toggle`, `automation.trigger`, ...)
+    langsung dari aplikasi via REST API — tanpa bash script, tanpa `curl`.
+  - Fallback ke mode webhook & bash script bila tetap dibutuhkan.
 
 ---
 
@@ -94,6 +98,19 @@ Di dalam repositori ini terdapat web aplikasi mandiri untuk visualisasi dan konf
 macropadv2.5/
 ├── macropadv2.5.ino         # Firmware Arduino / ESP32-C3
 ├── README.md                # Dokumentasi utama repositori
+├── linux-app/               # Native Linux Peripheral Desktop App (GTK3 UI)
+│   ├── main.py              # Window desktop native GTK3 + WebKit2
+│   ├── app_scanner.py       # Pemindai aplikasi terpasang di Ubuntu (.desktop)
+│   ├── system_actions.py    # Otomasi audio, mic mute, window, & HA
+│   ├── home_assistant.py    # Klien REST native Home Assistant (tanpa script)
+│   ├── serial_listener.py   # Listener hardware serial & event dispatcher
+│   ├── server.py            # Local backend server
+│   ├── samvivan-macropad.svg # Ikon vector resmi aplikasi
+│   ├── samvivan-macropad.desktop # Entry menu aplikasi Ubuntu
+│   ├── run.sh               # Launcher script aplikasi
+│   ├── install.sh           # Pasang ke Menu Aplikasi Ubuntu (Super Key)
+│   ├── uninstall.sh         # Hapus aplikasi & shortcut secara bersih
+│   └── README.md            # Dokumentasi aplikasi native
 └── web-configurator/        # Web App & Docker Configuration
     ├── Dockerfile           # Multi-arch Nginx Alpine image (~20MB)
     ├── docker-compose.yml   # Homelab deployment compose file
@@ -104,19 +121,46 @@ macropadv2.5/
     └── README.md            # Dokumentasi web-configurator
 ```
 
-### Menjalankan di Homelab (Docker Compose)
+### 💻 Menjalankan sebagai Aplikasi Native Linux (Direkomendasikan)
+Aplikasi ini berjalan layaknya software peripheral modern (**Vial, Piper, Razer Synapse, OpenRGB**), bukan daemon yang membebani background:
+1. **Pasang ke Menu Aplikasi Ubuntu**:
+   ```bash
+   cd linux-app
+   ./install.sh
+   ```
+2. Tekan tombol **Super / Windows** di keyboard, ketik **`SamVivan MacroPad`**, dan klik aplikasinya! Jendela native GTK3 akan terbuka.
+3. Saat jendela ditutup, aplikasi akan berhenti secara bersih tanpa meninggalkan proses background.
+
+### 🏠 Koneksi Home Assistant Native (Scriptless)
+Semua aksi tombol bertipe **Home Assistant (Native)** dieksekusi langsung oleh aplikasi
+ke `POST /api/services/<domain>/<service>` — menggantikan script `ha-*.sh` lama.
+Tidak ada IP, token, atau entity yang di-hardcode di source:
+1. Buka aplikasi → klik pill **`HA: ...`** di header (atau **Koneksi** di Key Inspector).
+   Dialog langsung terbuka — status dibaca dari cache, cek live jalan di latar belakang.
+2. Isi URL HA + **Long-Lived Access Token** (HA → Profile → Security → Long-Lived Access Tokens).
+3. **Test Koneksi** → **Simpan Koneksi** → sistem otomatis memindai semua entity interaktif
+   dan membuka **Entity Picker** (pilih HA, lalu pilih entity → tempel ke tombol).
+4. Pilih service (`toggle`, `turn_on`, `trigger`, `press`, ...), lalu **Test** untuk eksekusi.
+5. Token tersimpan di `~/.config/samvivan-macropad/ha_config.json`
+   (fallback baca: `~/.config/home-assistant/env`); hasil scan entity di-cache di
+   `~/.config/samvivan-macropad/ha_entities_cache.json` sehingga tetap tampil saat HA offline.
+6. Ikon domain/entity memakai set ikon **Lucide** (sama dengan shadcn/ui) — UI bebas emoji.
+
+### 🗑️ Cara Uninstall dari Ubuntu
+Untuk menghapus shortcut dan ikon aplikasi dari sistem Ubuntu:
+```bash
+cd linux-app
+./uninstall.sh
+```
+
+### 🐳 Menjalankan di Homelab (Docker Compose)
+Jika ingin hosting murni antarmuka konfigurator di server homelab:
 ```bash
 cd web-configurator
 docker compose up -d --build
 ```
-Aplikasi web dapat langsung diakses di: **`http://<IP_HOMELAB>:8080`**
+Aplikasi web dapat diakses di: **`http://<IP_HOMELAB>:8080`**
 
-### Menjalankan Lokal di Ubuntu (Tanpa Docker)
-```bash
-cd web-configurator
-python3 -m http.server 8080
-```
-Buka browser **Google Chrome** atau **Brave** di `http://localhost:8080`.
 
 ---
 

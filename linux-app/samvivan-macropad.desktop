@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=SamVivan MacroPad
+GenericName=MacroPad Peripheral Manager
+Comment=Configure keys, actions, and profiles for SamVivan MacroPad
+Exec=/home/samvivan/Arduino/samvivanpad/macropadv2.5/linux-app/run.sh
+Icon=samvivan-macropad
+Terminal=false
+Categories=Utility;HardwareSettings;Settings;
+StartupWMClass=samvivan-macropad
+Keywords=macropad;keyboard;macro;hardware;peripheral;samvivan;

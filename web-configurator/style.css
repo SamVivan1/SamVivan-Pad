@@ -1004,3 +1004,671 @@ body {
   from { transform: translateY(-8px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+
+/* ==========================================================================
+   Ubuntu Host Daemon Pill & App Picker Modal
+   ========================================================================== */
+.host-pill {
+  border-color: rgba(233, 84, 32, 0.4);
+}
+
+.host-pill.online {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.host-pill.online .status-indicator {
+  background-color: var(--success);
+  box-shadow: 0 0 8px var(--success-glow);
+}
+
+/* ==========================================================================
+   Home Assistant Pill & Native Connection Modal
+   ========================================================================== */
+.ha-pill {
+  cursor: pointer;
+  border-color: rgba(14, 165, 233, 0.4);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.ha-pill:hover {
+  border-color: rgba(14, 165, 233, 0.75);
+  background: rgba(14, 165, 233, 0.1);
+}
+
+.ha-pill.online {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.ha-pill.online .status-indicator {
+  background-color: var(--success);
+  box-shadow: 0 0 8px var(--success-glow);
+}
+
+.ha-modal {
+  max-width: 560px;
+}
+
+.ha-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 24px 24px;
+  overflow-y: auto;
+}
+
+.ha-token-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ha-token-row .form-input {
+  flex: 1;
+}
+
+.ha-hint {
+  margin: 4px 0 0;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.ha-hint code {
+  font-family: var(--font-mono);
+  background: rgba(148, 163, 184, 0.12);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: #7dd3fc;
+}
+
+.ha-status-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--bg-panel-border);
+  border-radius: var(--radius-md);
+  background: rgba(15, 23, 42, 0.6);
+  font-size: 0.78rem;
+  min-height: 40px;
+}
+
+.ha-status-text.ha-status-ok { color: var(--success); }
+.ha-status-text.ha-status-err { color: var(--danger, #ef4444); }
+.ha-status-text.ha-status-warn { color: #f59e0b; }
+.ha-status-text.ha-status-info,
+.ha-status-text.ha-status-busy { color: var(--text-dim); }
+
+.ha-modal-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ha-modal-actions .btn {
+  flex: 1;
+  min-width: 140px;
+}
+
+.ha-inline-warning {
+  margin: 4px 0;
+  padding: 7px 10px;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-md);
+}
+
+.ha-entity-filter {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  padding: 7px 12px;
+}
+
+.entity-select {
+  margin-top: 6px;
+  max-height: 190px;
+}
+
+.app-modal {
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--bg-panel-border);
+  border-radius: var(--radius-xl);
+  background: var(--bg-panel);
+  color: var(--text-main);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
+  width: 90%;
+  max-width: 780px;
+  max-height: 85vh;
+  overflow: hidden;
+}
+
+.app-modal::backdrop {
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+}
+
+.modal-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 85vh;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--bg-panel-border);
+  background: #0f172a;
+}
+
+.modal-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.modal-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.btn-close-modal {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 1.6rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.btn-close-modal:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.modal-search-wrap {
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--bg-panel-border);
+  background: var(--bg-app);
+}
+
+.modal-search-input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--bg-panel-border);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  color: #fff;
+  font-size: 0.92rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.modal-search-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-glow);
+}
+
+.modal-apps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  padding: 20px 24px;
+  overflow-y: auto;
+  max-height: 55vh;
+}
+
+.app-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--bg-panel-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.app-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.app-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.app-card-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.app-card-name {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-card-id {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selected-app-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: var(--radius-md);
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.btn-test-action {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-test-action:hover {
+  background: rgba(59, 130, 246, 0.3);
+  color: #fff;
+}
+
+/* ==========================================================================
+   Home Assistant Entity Picker & Inspector HA Block
+   ========================================================================== */
+.entity-modal {
+  max-width: 900px;
+}
+
+.entity-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 24px 0;
+}
+
+.entity-toolbar .modal-search-input {
+  flex: 1;
+}
+
+.entity-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 24px 0;
+}
+
+.entity-chip {
+  border: 1px solid var(--bg-panel-border);
+  background: rgba(15, 23, 42, 0.6);
+  color: var(--text-dim);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.entity-chip:hover {
+  border-color: rgba(14, 165, 233, 0.6);
+  color: #7dd3fc;
+}
+
+.entity-chip.active {
+  background: rgba(14, 165, 233, 0.16);
+  border-color: rgba(14, 165, 233, 0.7);
+  color: #7dd3fc;
+}
+
+.entity-grid {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  max-height: 52vh;
+}
+
+.entity-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid var(--bg-panel-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-main);
+  transition: border-color 0.15s ease, transform 0.1s ease, background 0.15s ease;
+}
+
+.entity-card:hover {
+  border-color: rgba(14, 165, 233, 0.65);
+  background: rgba(14, 165, 233, 0.08);
+  transform: translateY(-2px);
+}
+
+.entity-card .entity-icon {
+  font-size: 1.3rem;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(148, 163, 184, 0.12);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.entity-card .entity-body,
+.ha-selected-box .entity-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.entity-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entity-id {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entity-state {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.14);
+  color: var(--text-dim);
+  flex-shrink: 0;
+  max-width: 76px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entity-state.state-on {
+  background: rgba(16, 185, 129, 0.18);
+  color: var(--success);
+}
+
+.entity-state.state-off {
+  background: rgba(148, 163, 184, 0.16);
+  color: #94a3b8;
+}
+
+.entity-state.state-na {
+  background: rgba(239, 68, 68, 0.16);
+  color: var(--danger);
+}
+
+.entity-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+/* Inspector: HA pick & service row */
+.ha-picker-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.ha-picker-btns {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.ha-selected-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-top: 6px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(14, 165, 233, 0.35);
+  border-radius: var(--radius-md);
+}
+
+.ha-selected-box.empty {
+  border-style: dashed;
+  border-color: var(--bg-panel-border);
+  opacity: 0.85;
+}
+
+.ha-selected-box .entity-icon {
+  font-size: 1.3rem;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(148, 163, 184, 0.12);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.ha-service-row {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr auto;
+  gap: 8px;
+  align-items: end;
+  margin-top: 8px;
+}
+
+.ha-service-field .form-input,
+.ha-service-field .form-select {
+  font-size: 0.8rem;
+  padding: 6px 10px;
+}
+
+
+
+/* ==========================================================================
+   Icon system — Lucide (set ikon yang sama dengan shadcn/ui)
+   ========================================================================== */
+.icon-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.icon {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: -0.15em;
+}
+
+.icon-xs { width: 0.78em; height: 0.78em; }
+.icon-md { width: 1.15em; height: 1.15em; }
+.icon-lg { width: 1.7em; height: 1.7em; }
+
+.ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.icon-spin {
+  animation: iconSpin 1s linear infinite;
+}
+
+@keyframes iconSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Ikon pada tombol / chip / kartu */
+.btn .icon,
+.btn-test-action .icon,
+.dropdown-item .icon,
+.entity-chip .icon {
+  vertical-align: -0.15em;
+}
+
+.btn-test-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.action-chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entity-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.entity-card .entity-icon .icon,
+.ha-selected-box .entity-icon .icon {
+  width: 18px;
+  height: 18px;
+  color: #7dd3fc;
+}
+
+.ha-selected-box.empty .entity-icon .icon {
+  color: var(--text-dim);
+}
+
+.entity-empty-icon {
+  color: var(--text-dim);
+}
+
+.entity-empty-icon .icon {
+  width: 34px;
+  height: 34px;
+  stroke-width: 1.5;
+}
+
+.modal-title .icon {
+  color: #38bdf8;
+  margin-right: 4px;
+}
+
+.ha-inline-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.ha-inline-warning .icon {
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.live-action-hint .icon {
+  color: #34d399;
+}
+
+.timing-summary .icon {
+  color: var(--text-muted);
+}
+
+/* Ikon pencarian pada modal */
+.search-ico {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+.search-ico .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.modal-search-wrap {
+  position: relative;
+}
+
+.modal-search-wrap .modal-search-input {
+  padding-left: 46px;
+}
+
+.modal-search-wrap .search-ico {
+  position: absolute;
+  left: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+}
