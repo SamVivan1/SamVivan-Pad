@@ -240,6 +240,21 @@ class SettingsPage(Gtk.Box):
         apps_group.add(self.apps_row)
         page.add(apps_group)
 
+        fw_group = Adw.PreferencesGroup(
+            title="Firmware (USB)",
+            description="Kirim konfigurasi yang sedang aktif ke ESP32 via port serial.",
+        )
+        fw_row = Adw.ActionRow(
+            title="Kirim ke Firmware",
+            subtitle="SET_CONFIG → langsung diterapkan; pakai 'CMD:SAVE_CONFIG' di Console untuk simpan permanen.",
+        )
+        fw_send = util.button("Kirim Sekarang", "usb-symbolic",
+                              on_clicked=self._on_send_fw)
+        fw_send.set_valign(Gtk.Align.CENTER)
+        fw_row.add_suffix(fw_send)
+        fw_group.add(fw_row)
+        page.add(fw_group)
+
         # --- Info -------------------------------------------------------
         info = Adw.PreferencesGroup(title="Informasi")
         info.add(Adw.ActionRow(title="Konfigurasi", subtitle=config_module.CONFIG_FILE))
@@ -308,3 +323,50 @@ class SettingsPage(Gtk.Box):
             self.window.show_toast(f"{len(apps)} aplikasi ditemukan.", "success")
 
         util.run_async(lambda: get_installed_apps(force_refresh=True), done)
+
+    def _on_send_fw(self, _btn) -> None:
+        import json
+        cfg = state.cfg
+        fw = {
+            "debounceMs": cfg.get("debounceMs", 25),
+            "clickTimeoutMs": cfg.get("clickTimeoutMs", 250),
+            "holdTimeoutMs": cfg.get("holdTimeoutMs", 450),
+        }
+
+        def build(mode_name):
+            d1, d2, dh = [], [], []
+            m = None
+            for mm in cfg.get("modes", []):
+                if mm.get("id") == mode_name:
+                    m = mm
+                    break
+            if not m:
+                return d1, d2, dh
+            for b in m.get("buttons", [])[:7]:
+                for trig, out in (("single", d1), ("double", d2), ("hold", dh)):
+                    act = (b.get(trig) or {})
+                    kc = act.get("keyCode")
+                    if kc is None:
+                        kc = 0
+                    out.append(int(kc))
+            return d1, d2, dh
+
+        d1, d2, dh = build("desktop")
+        h1, h2, hh = build("ha")
+        fw.update({"d1": d1, "d2": d2, "dh": dh, "h1": h1, "h2": h2, "hh": hh})
+        payload = "CMD:SET_CONFIG:" + json.dumps(fw, separators=(",", ":"))
+        listener = state.listener
+        ok = False
+        if listener:
+            try:
+                ok = bool(listener.send_command(payload))
+            except Exception as e:
+                self.window.show_toast(f"Gagal kirim: {e}", "error")
+                return
+        if ok:
+            self.window.show_toast(
+                "Config dikirim ke firmware (applied). Gunakan CMD:SAVE_CONFIG di Console untuk menyimpan permanen.",
+                "success",
+            )
+        else:
+            self.window.show_toast("Serial belum terhubung — colok USB macropad.", "error")
