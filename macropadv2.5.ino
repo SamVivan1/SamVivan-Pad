@@ -193,6 +193,38 @@ void handleCmd() {
   if (!Serial.available()) return;
   String l = Serial.readStringUntil('\\n');
   l.trim();
+
+  if (l.startsWith("SET ")) {
+    // SET <key> <c0,c1,c2,c3,c4,c5,c6>
+    String rest = l.substring(4);
+    int sp = rest.indexOf(' ');
+    if (sp > 0) {
+      String key = rest.substring(0, sp);
+      String csv = rest.substring(sp + 1);
+      uint8_t* arr = nullptr;
+      if (key == "d1") arr = cfg_desktopSingle;
+      else if (key == "d2") arr = cfg_desktopDouble;
+      else if (key == "dh") arr = cfg_desktopHold;
+      else if (key == "h1") arr = cfg_haSingle;
+      else if (key == "h2") arr = cfg_haDouble;
+      else if (key == "hh") arr = cfg_haHold;
+      if (arr) {
+        int i = 0, s = 0;
+        while (i < 7 && s < (int)csv.length()) {
+          int e = csv.indexOf(',', s);
+          String tok = (e < 0) ? csv.substring(s) : csv.substring(s, e);
+          arr[i] = (uint8_t)strtol(tok.c_str(), nullptr, 10);
+          i++;
+          if (e < 0) break;
+          s = e + 1;
+        }
+        Serial.println(String("SET:") + key + ":OK");
+        return;
+      }
+    }
+    Serial.println("SET:ERR");
+    return;
+  }
   if (l.startsWith("SAVE")) {
     saveConfig();
     Serial.println("SAVED");

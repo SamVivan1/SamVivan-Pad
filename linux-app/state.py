@@ -8,6 +8,8 @@ gi/Gtk agar bisa dipakai dari mana pun (termasuk unit test).
 
 from typing import Any, Callable, Dict, List, Optional
 
+import copy
+
 import config as config_module
 
 # ---------------------------------------------------------------------------
@@ -17,6 +19,7 @@ cfg: Dict[str, Any] = config_module.load_config()
 mode_index: int = 0          # 0 = Desktop, 1 = Home Assistant
 selected_index: int = 0      # tombol B1..B8 yang sedang diedit (0-7)
 dirty: bool = False          # ada perubahan belum disimpan
+active_preset: Optional[str] = cfg.get("activePreset")
 
 installed_apps: List[Dict[str, str]] = []
 system_presets: List[Dict[str, Any]] = []
@@ -128,6 +131,62 @@ def save() -> bool:
         emit("config-saved", ok=True)
     else:
         emit("config-saved", ok=False)
+    return ok
+
+
+def save_preset(name: str, overwrite: bool = False) -> bool:
+    """Simpan konfigurasi sebagai preset pengguna.
+
+    overwrite=True memakai nama preset aktif (name diabaikan).
+    Berkebalikan dengan save(), di sini juga terbentuk snapshot preset baru.
+    """
+    global dirty, active_preset
+    if overwrite:
+        if not active_preset:
+            emit("config-saved", ok=False)
+            return False
+        preset_name = active_preset
+    else:
+        preset_name = config_module.preset_slug(name)
+    snapshot = copy.deepcopy(cfg)
+    snapshot.pop("activePreset", None)
+    ok = config_module.save_preset(preset_name, snapshot)
+    if ok:
+        active_preset = preset_name
+        cfg["activePreset"] = preset_name
+        config_module.save_config(cfg)
+        dirty = False
+        if listener is not None:
+            try:
+                listener.config = cfg
+            except Exception as exc:
+                print(f"[STATE] gagal sinkron ke listener: {exc}")
+        emit("config-saved", ok=True, preset=preset_name)
+    else:
+        emit("config-saved", ok=False)
+    return ok
+
+
+def apply_user_preset(name: str) -> bool:
+    """Muat preset pengguna ke editor (menandai konfigurasi berubah)."""
+    global active_preset
+    data = config_module.load_preset(name)
+    if data is None:
+        return False
+    data["activePreset"] = name
+    set_config(data, source="preset")
+    active_preset = name
+    return True
+
+
+def delete_user_preset(name: str) -> bool:
+    """Hapus preset pengguna (bila aktif, lepaskan status aktif)."""
+    global active_preset
+    ok = config_module.delete_preset(name)
+    if ok and active_preset == name:
+        active_preset = None
+        cfg.pop("activePreset", None)
+        config_module.save_config(cfg)
     return ok
 
 

@@ -9,10 +9,12 @@ Sumber kebenaran satu-satunya untuk aplikasi native GTK4:
 import copy
 import json
 import os
-from typing import Any, Dict, List, Tuple
+import re
+from typing import Any, Dict, List, Optional, Tuple
 
 CONFIG_DIR = os.path.expanduser("~/.config/samvivan-macropad")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
+PRESET_DIR = os.path.join(CONFIG_DIR, "presets")
 
 # Pinout fisik tombol B1..B8 (sama dengan macropadv2.5.ino)
 PINOUT = [20, 9, 2, 1, 21, 10, 3, 0]
@@ -287,6 +289,69 @@ def save_config(config: Dict[str, Any]) -> bool:
 
 def get_button(config: Dict[str, Any], mode_index: int, index: int) -> Dict[str, Any]:
     return config["modes"][mode_index]["buttons"][index]
+
+
+# ---------------------------------------------------------------------------
+# Preset pengguna (snapshot konfigurasi yang bisa dibuat/ditimpa dari UI)
+# ---------------------------------------------------------------------------
+def preset_slug(name: str) -> str:
+    """Bentuk slug aman untuk nama preset (dipakai sebagai nama file)."""
+    cleaned = "".join(
+        ch if (ch.isalnum() or ch in " _-") else "-"
+        for ch in name.strip().lower()
+    )
+    slug = re.sub(r"[-_ ]+", "-", cleaned).strip("-")
+    return slug or "preset"
+
+
+def list_presets() -> List[str]:
+    """Nama preset pengguna yang tersimpan (urut alfabet)."""
+    if not os.path.isdir(PRESET_DIR):
+        return []
+    names = []
+    for filename in sorted(os.listdir(PRESET_DIR)):
+        if filename.endswith(".json"):
+            names.append(os.path.splitext(filename)[0])
+    return names
+
+
+def preset_file(name: str) -> str:
+    return os.path.join(PRESET_DIR, f"{preset_slug(name)}.json")
+
+
+def save_preset(name: str, data: Dict[str, Any]) -> bool:
+    """Simpan snapshot preset ke direktori preset pengguna."""
+    try:
+        os.makedirs(PRESET_DIR, exist_ok=True)
+        with open(preset_file(name), "w", encoding="utf-8") as handle:
+            json.dump(data, handle, indent=2, ensure_ascii=False)
+        return True
+    except Exception as exc:
+        print(f"[CONFIG] Gagal menulis preset '{name}': {exc}")
+        return False
+
+
+def load_preset(name: str) -> Optional[Dict[str, Any]]:
+    """Muat snapshot preset pengguna; None bila tidak ada."""
+    try:
+        with open(preset_file(name), "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except Exception as exc:
+        print(f"[CONFIG] Gagal membaca preset '{name}': {exc}")
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def delete_preset(name: str) -> bool:
+    """Hapus file preset pengguna."""
+    try:
+        path = preset_file(name)
+        if os.path.exists(path):
+            os.remove(path)
+        return True
+    except Exception as exc:
+        print(f"[CONFIG] Gagal menghapus preset '{name}': {exc}")
+        return False
 
 
 def action_summary(action: Dict[str, Any] | None) -> str:

@@ -113,7 +113,7 @@ class SerialDaemonListener:
                 pass
         self.ser = None
 
-    def send_command(self, command: str) -> bool:
+    def send_command(self, command: str, log: bool = True) -> bool:
         """Kirim satu baris perintah teks ke hardware (dipakai konsol UI)."""
         if not self.ser or not self.ser.is_open:
             print("[DAEMON] [ERROR] Serial belum terbuka — perintah tidak terkirim.")
@@ -121,7 +121,7 @@ class SerialDaemonListener:
         try:
             payload = (command.strip() + "\n").encode("utf-8")
             self.ser.write(payload)
-            if self.on_event_callback:
+            if log and self.on_event_callback:
                 self.on_event_callback(f"[TX] {command.strip()}")
             return True
         except Exception as e:

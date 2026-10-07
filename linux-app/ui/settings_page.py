@@ -3,6 +3,8 @@
 
 from typing import Any, Dict, Optional
 
+import threading
+
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -76,7 +78,7 @@ class ProfilesPage(Gtk.Box):
         current.add(io_row)
         page.add(current)
 
-        # --- Preset -----------------------------------------------------
+        # --- Preset Bawaan -------------------------------------------------
         presets_group = Adw.PreferencesGroup(
             title="Preset Bawaan",
             description="Mengganti seluruh pemetaan tombol — simpan setelah cocok.",
@@ -92,6 +94,15 @@ class ProfilesPage(Gtk.Box):
             row.connect("activated", self._on_apply_preset, key)
             presets_group.add(row)
         page.add(presets_group)
+
+        # --- Preset Saya ---------------------------------------------------
+        self.user_presets_group = Adw.PreferencesGroup(
+            title="Preset Saya",
+            description="Snapshot yang dibuat saat menekan Simpan — "
+                        "aktifkan atau timpa via tombol Simpan di header.",
+        )
+        self._user_preset_rows: list = []
+        page.add(self.user_presets_group)
 
         info = Adw.PreferencesGroup(title="Tentang")
         info.add(Adw.ActionRow(
@@ -111,11 +122,59 @@ class ProfilesPage(Gtk.Box):
     # ------------------------------------------------------------------
     def _sync_state(self) -> None:
         if state.dirty:
-            self.state_row.set_subtitle("Belum disimpan (Ctrl+S untuk simpan)")
+            self.state_row.set_subtitle("Belum disimpan (pilih Simpan di header)")
             self.save_button.set_sensitive(True)
         else:
             self.state_row.set_subtitle("Tersimpan ke disk")
             self.save_button.set_sensitive(False)
+        self._rebuild_user_presets()
+
+    def _rebuild_user_presets(self) -> None:
+        for row in self._user_preset_rows:
+            self.user_presets_group.remove(row)
+        self._user_preset_rows = []
+
+        names = config_module.list_presets()
+        if not names:
+            row = Adw.ActionRow(title="Belum ada preset",
+                                subtitle="Tekan Simpan di header untuk membuat "
+                                         "snapshot pertama.")
+            self._user_preset_rows.append(row)
+            self.user_presets_group.add(row)
+            return
+        for name in names:
+            active = name == state.active_preset
+            row = Adw.ActionRow(
+                title=name,
+                subtitle="Preset aktif — pengeditan berikutnya akan menimpanya"
+                if active else "Klik untuk memuat ke editor",
+                activatable=not active)
+            if active:
+                row.add_prefix(Gtk.Image.new_from_icon_name("emblem-ok-symbolic"))
+            activate = util.button("Muat", "document-open-symbolic", None,
+                                    self._on_load_user_preset, name)
+            activate.set_valign(Gtk.Align.CENTER)
+            row.add_suffix(activate)
+            delete = util.button("Hapus", "user-trash-symbolic", None,
+                                 self._on_delete_user_preset, name)
+            delete.set_valign(Gtk.Align.CENTER)
+            row.add_suffix(delete)
+            self._user_preset_rows.append(row)
+            self.user_presets_group.add(row)
+
+    def _on_load_user_preset(self, _widget, name: str) -> None:
+        if state.apply_user_preset(name):
+            self.window.show_toast(
+                f"Preset “{name}” dimuat — pilih Simpan untuk mengaktifkan.",
+                "success")
+        else:
+            self.window.show_toast(f"Gagal memuat preset “{name}”.", "error")
+
+    def _on_delete_user_preset(self, _widget, name: str) -> None:
+        if state.delete_user_preset(name):
+            self.window.show_toast(f"Preset “{name}” dihapus.", "success")
+        else:
+            self.window.show_toast(f"Gagal menghapus preset “{name}”.", "error")
 
     def _on_state_event(self, event: str, **_data: Any) -> None:
         if event in ("dirty-changed", "config-saved", "config-replaced"):
@@ -325,48 +384,21 @@ class SettingsPage(Gtk.Box):
         util.run_async(lambda: get_installed_apps(force_refresh=True), done)
 
     def _on_send_fw(self, _btn) -> None:
-        import json
-        cfg = state.cfg
-        fw = {
-            "debounceMs": cfg.get("debounceMs", 25),
-            "clickTimeoutMs": cfg.get("clickTimeoutMs", 250),
-            "holdTimeoutMs": cfg.get("holdTimeoutMs", 450),
-        }
+        from firmware_sync import push_to_firmware
 
-        def build(mode_name):
-            d1, d2, dh = [], [], []
-            m = None
-            for mm in cfg.get("modes", []):
-                if mm.get("id") == mode_name:
-                    m = mm
-                    break
-            if not m:
-                return d1, d2, dh
-            for b in m.get("buttons", [])[:7]:
-                for trig, out in (("single", d1), ("double", d2), ("hold", dh)):
-                    act = (b.get(trig) or {})
-                    kc = act.get("keyCode")
-                    if kc is None:
-                        kc = 0
-                    out.append(int(kc))
-            return d1, d2, dh
+        def worker() -> None:
+            ok, reason = push_to_firmware(state.listener, state.cfg)
+            GLib.idle_add(self._fw_result, ok, reason)
 
-        d1, d2, dh = build("desktop")
-        h1, h2, hh = build("ha")
-        fw.update({"d1": d1, "d2": d2, "dh": dh, "h1": h1, "h2": h2, "hh": hh})
-        payload = "CMD:SET_CONFIG:" + json.dumps(fw, separators=(",", ":"))
-        listener = state.listener
-        ok = False
-        if listener:
-            try:
-                ok = bool(listener.send_command(payload))
-            except Exception as e:
-                self.window.show_toast(f"Gagal kirim: {e}", "error")
-                return
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _fw_result(self, ok: bool, reason: str) -> None:
         if ok:
             self.window.show_toast(
-                "Config dikirim ke firmware (applied). Gunakan CMD:SAVE_CONFIG di Console untuk menyimpan permanen.",
-                "success",
-            )
+                "Config terkirim ke firmware ESP32-C3 dan disimpan.",
+                "success")
+        elif reason == "no-serial":
+            self.window.show_toast("Serial belum terhubung — colok USB macropad.",
+                                   "error")
         else:
-            self.window.show_toast("Serial belum terhubung — colok USB macropad.", "error")
+            self.window.show_toast(f"Gagal kirim ke firmware: {reason}", "error")

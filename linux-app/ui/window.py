@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """SamVivan MacroPad - Jendela utama (GTK4 + Libadwaita, HIG GNOME)."""
 
+import threading
 from typing import Any, Optional
 
 import gi
@@ -8,7 +9,9 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw, Gio, GLib  # noqa: E402
 
+import config as config_module
 import state
+from firmware_sync import push_to_firmware
 from ui import util
 from ui.console_page import ConsolePage
 from ui.keys_page import KeysPage
@@ -291,10 +294,97 @@ class MacroPadWindow(Adw.ApplicationWindow):
         HaConnectionDialog(self).present()
 
     def _on_save_clicked(self, _btn) -> None:
-        if state.save():
-            self.show_toast("Konfigurasi tersimpan.", "success")
+        self._show_save_dialog()
+
+    def _show_save_dialog(self) -> None:
+        """Dialog Simpan: buat preset baru atau timpa preset aktif."""
+        dialog = Adw.MessageDialog(transient_for=self, heading="Simpan Konfigurasi")
+
+        body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        body.set_margin_top(4)
+
+        new_button = Gtk.ToggleButton()
+        new_button.set_label("Simpan sebagai preset baru")
+        new_button.set_active(True)
+        overwrite_button = Gtk.ToggleButton()
+        overwrite_button.set_label("Timpa preset aktif")
+        overwrite_button.set_group(new_button)
+        if state.active_preset:
+            overwrite_button.set_tooltip_text(
+                f"Menimpa preset “{state.active_preset}”")
         else:
-            self.show_toast("Gagal menyimpan konfigurasi.", "error")
+            overwrite_button.set_sensitive(False)
+        body.append(new_button)
+        body.append(overwrite_button)
+
+        name_entry = Gtk.Entry()
+        name_entry.set_placeholder_text("Nama preset baru")
+        suggestion = self._suggest_preset_name()
+        name_entry.set_text(suggestion)
+        name_entry.connect("activate",
+                           lambda *_: dialog.emit("response", "save"))
+        body.append(name_entry)
+
+        dialog.set_extra_child(body)
+        dialog.add_response("cancel", "Batal")
+        dialog.add_response("save", "Simpan")
+        dialog.set_default_response("save")
+        dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
+        dialog.connect("response", self._on_save_dialog_response,
+                       new_button, overwrite_button, name_entry)
+        dialog.present()
+
+    def _suggest_preset_name(self) -> str:
+        count = len(config_module.list_presets()) + 1
+        return f"Preset {count}"
+
+    def _on_save_dialog_response(
+            self, dialog: Adw.MessageDialog, response: str,
+            new_button: Gtk.ToggleButton, overwrite_button: Gtk.ToggleButton,
+            name_entry: Gtk.Entry) -> None:
+        if response != "save":
+            return
+        if overwrite_button.get_active():
+            if not state.active_preset:
+                self.show_toast("Belum ada preset aktif — pilih preset baru.", "error")
+                return
+            ok = state.save_preset("", overwrite=True)
+            preset_name = state.active_preset
+            action = "diperbarui"
+        else:
+            name = name_entry.get_text().strip()
+            if not name:
+                self.show_toast("Nama preset tidak boleh kosong.", "error")
+                return
+            ok = state.save_preset(name, overwrite=False)
+            preset_name = state.active_preset
+            action = "dibuat"
+
+        if not ok:
+            self.show_toast("Gagal menyimpan preset.", "error")
+            return
+        self.show_toast(f"Preset “{preset_name}” {action}.", "success")
+        self._push_firmware_background()
+
+    def _push_firmware_background(self) -> None:
+        """Kirim pemetaan tombol ke ESP32-C3 di latar belakang."""
+        listener = state.listener
+        cfg = state.cfg
+
+        def worker() -> None:
+            ok, reason = push_to_firmware(listener, cfg)
+            GLib.idle_add(self._on_firmware_pushed, ok, reason)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_firmware_pushed(self, ok: bool, reason: str) -> None:
+        if ok:
+            self.show_toast("Config terkirim ke firmware ESP32-C3.", "success")
+        elif reason == "no-serial":
+            self.show_toast("Tersimpan. Colok USB macropad untuk kirim ke firmware.",
+                            "info")
+        else:
+            self.show_toast(f"Gagal kirim ke firmware: {reason}", "error")
 
     # ------------------------------------------------------------------
     # Sinkronisasi pill / tombol
