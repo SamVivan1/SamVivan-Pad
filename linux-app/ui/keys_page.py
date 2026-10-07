@@ -19,7 +19,7 @@ from ui import util
 
 class KeysPage(Gtk.Box):
     def __init__(self, window) -> None:
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.add_css_class("mp-page")
         self.window = window
         self._syncing = False
@@ -27,7 +27,7 @@ class KeysPage(Gtk.Box):
 
         self.append(self._build_header())
 
-        panes = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
+        panes = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         panes.set_vexpand(True)
 
         grid_host = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -36,7 +36,7 @@ class KeysPage(Gtk.Box):
         grid_host.set_halign(Gtk.Align.CENTER)
         grid_host.add_css_class("mp-chassis")
 
-        self.grid = Gtk.Grid(column_spacing=14, row_spacing=14)
+        self.grid = Gtk.Grid(column_spacing=8, row_spacing=8)
         self.grid.set_halign(Gtk.Align.CENTER)
         for index in range(8):
             card = self._build_card(index)
@@ -46,13 +46,13 @@ class KeysPage(Gtk.Box):
         panes.append(grid_host)
 
         self.inspector = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        self.inspector.set_size_request(420, -1)
+        self.inspector.set_size_request(380, -1)
         self.inspector.add_css_class("mp-inspector")
         inspector_scroll = Gtk.ScrolledWindow(hexpand=False, vexpand=True)
         inspector_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         inspector_scroll.set_child(self.inspector)
         inspector_scroll.add_css_class("mp-panel")
-        inspector_scroll.set_size_request(430, -1)
+        inspector_scroll.set_size_request(390, -1)
         panes.append(inspector_scroll)
 
         self.append(panes)
