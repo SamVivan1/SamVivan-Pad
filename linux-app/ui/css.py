@@ -100,3 +100,16 @@ window {
   font-size: 0.86rem;
 }
 """
+
+
+def load_css(display) -> None:
+    """Pasang provider CSS aplikasi pada display yang diberikan."""
+    import gi
+    gi.require_version("Gtk", "4.0")
+    from gi.repository import Gtk
+
+    provider = Gtk.CssProvider()
+    provider.load_from_data(APP_CSS.encode("utf-8"))
+    Gtk.StyleContext.add_provider_for_display(
+        display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    )
