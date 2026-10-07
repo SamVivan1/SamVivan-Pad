@@ -111,7 +111,7 @@ class KeysPage(Gtk.Box):
         button = Gtk.Button()
         button.set_css_classes(["mp-key"])
         button.set_has_frame(False)
-        button.set_size_request(150, 96)
+        button.set_size_request(150, 118)
 
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
 
@@ -132,7 +132,7 @@ class KeysPage(Gtk.Box):
         head.append(name_label)
         body.append(head)
 
-        chip_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        chip_row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         chip_labels: List[Gtk.Label] = []
         for trig, _ in config_module.TRIGGERS:
             chip = util.label("-", css=["mp-chip"])
