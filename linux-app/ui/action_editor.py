@@ -2,8 +2,9 @@
 """
 SamVivan MacroPad - Editor aksi per trigger (Single / Double / Hold).
 
-Satu ActionEditor menampilkan pemilih tipe aksi + form sesuai tipe yang
-dipilih. Semua perubahan langsung menulis ke state dan memancarkan event.
+Satu trigger bisa memuat banyak aksi. `ActionEditor` menampung daftar kartu
+`_ActionCard` (satu per aksi) dengan tombol "+" untuk menambah dan "×" untuk
+menghapus. Semua perubahan langsung menulis ke state dan memancarkan event.
 """
 
 from typing import Any, Dict, List, Optional
@@ -24,41 +25,137 @@ def _copy_action(action: Dict[str, Any]) -> Dict[str, Any]:
 
 
 class ActionEditor(Gtk.Box):
-    """Editor satu trigger untuk tombol yang sedang dipilih."""
+    """Editor satu trigger: daftar aksi + tombol tambah."""
 
     def __init__(self, window, trigger: str, trigger_label: str) -> None:
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         self.window = window
         self.trigger = trigger
-        self._syncing = False
+        self._cards: List["_ActionCard"] = []
 
         head = util.horizontal(spacing=8)
         title = util.label(trigger_label, css=["mp-trigger-title"])
         title.set_hexpand(True)
-        self.type_combo = Gtk.DropDown.new_from_strings(
-            [label for _, label in config_module.ACTION_TYPES]
-        )
-        self.type_combo.connect("notify::selected", self._on_type_changed)
         head.append(title)
-        head.append(self.type_combo)
-        self.append(head)
 
+        test_all = util.button("Test Semua", "media-playback-start-symbolic",
+                               ["suggested-action", "flat"],
+                               self._test_all)
+        test_all.set_valign(Gtk.Align.CENTER)
+        head.append(test_all)
+
+        add_button = Gtk.Button(icon_name="list-add-symbolic")
+        add_button.set_css_classes(["flat"])
+        add_button.set_tooltip_text("Tambah aksi")
+        add_button.set_valign(Gtk.Align.CENTER)
+        add_button.connect("clicked", self._add_action)
+        head.append(add_button)
+
+        self.append(head)
         self.content = util.vertical(spacing=8)
         self.append(self.content)
 
         self.refresh()
 
     # ------------------------------------------------------------------
-    def action(self) -> Dict[str, Any]:
-        return state.current_button()[self.trigger]
+    def actions(self) -> List[Dict[str, Any]]:
+        return state.get_actions(self.trigger)
 
+    def refresh(self) -> None:
+        child = self.content.get_first_child()
+        while child is not None:
+            following = child.get_next_sibling()
+            self.content.remove(child)
+            child = following
+
+        self._cards = []
+        actions = self.actions() or [config_module.default_action("none")]
+        for index, action in enumerate(actions):
+            card = _ActionCard(self, index, action)
+            self._cards.append(card)
+            self.content.append(card)
+
+    def replace_action(self, index: int, action: Dict[str, Any]) -> None:
+        state.set_action(self.trigger, index, action)
+        self.refresh()
+
+    def _add_action(self, _button) -> None:
+        state.add_action(self.trigger)
+        self.refresh()
+
+    def remove_action(self, index: int) -> None:
+        state.remove_action(self.trigger, index)
+        self.refresh()
+
+    # ------------------------------------------------------------------
+    # Test seluruh aksi pada trigger (thread, hasil -> toast)
+    # ------------------------------------------------------------------
+    def _test_all(self, _button) -> None:
+        actions = [a for a in self.actions()
+                   if a.get("type", "none") != "none"]
+        if not actions:
+            self.window.show_toast("Tidak ada aksi pada trigger ini", "info")
+            return
+
+        def work():
+            results: List[Any] = []
+            for action in actions:
+                results.append(execute_action(action.get("type", "none"), action))
+            return results
+
+        def done(results: List[Any]) -> None:
+            ok = all(isinstance(r, tuple) and len(r) == 2 and r[0] for r in results)
+            messages = [r[1] if isinstance(r, tuple) and len(r) == 2 else str(r)
+                        for r in results]
+            self.window.show_toast("Test: " + " | ".join(messages),
+                                   "success" if ok else "error")
+
+        util.run_async(work, done)
+
+
+class _ActionCard(Gtk.Box):
+    """Satu kartu: satu aksi pada satu trigger."""
+
+    def __init__(self, editor: ActionEditor, index: int,
+                 action: Dict[str, Any]) -> None:
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.set_css_classes(["mp-ae-card"])
+        self.editor = editor
+        self.index = index
+        self.action = action
+        self._syncing = False
+
+        head = util.horizontal(spacing=6)
+        number = util.label(f"A{index + 1}", css=["mp-ae-num"])
+        head.append(number)
+
+        self.type_combo = Gtk.DropDown.new_from_strings(
+            [label for _, label in config_module.ACTION_TYPES]
+        )
+        self.type_combo.set_hexpand(True)
+        self.type_combo.connect("notify::selected", self._on_type_changed)
+        head.append(self.type_combo)
+
+        remove_button = Gtk.Button(icon_name="user-trash-symbolic")
+        remove_button.set_css_classes(["flat"])
+        remove_button.set_tooltip_text("Hapus aksi ini")
+        remove_button.set_valign(Gtk.Align.CENTER)
+        remove_button.connect("clicked",
+                              lambda _b: self.editor.remove_action(self.index))
+        head.append(remove_button)
+        self.append(head)
+
+        self.content = util.vertical(spacing=6)
+        self.append(self.content)
+        self._rebuild()
+
+    # ------------------------------------------------------------------
     def _type_ids(self) -> List[str]:
         return [type_id for type_id, _ in config_module.ACTION_TYPES]
 
     def _current_index(self) -> int:
-        action = self.action()
         try:
-            return self._type_ids().index(action.get("type", "none"))
+            return self._type_ids().index(self.action.get("type", "none"))
         except ValueError:
             return 0
 
@@ -66,16 +163,10 @@ class ActionEditor(Gtk.Box):
         if self._syncing:
             return
         type_id = self._type_ids()[self.type_combo.get_selected()]
-        if self.action().get("type") == type_id:
+        if self.action.get("type") == type_id:
             return
-        state.set_action(self.trigger, config_module.default_action(type_id))
-        self._rebuild()
-
-    def refresh(self) -> None:
-        self._syncing = True
-        self.type_combo.set_selected(self._current_index())
-        self._syncing = False
-        self._rebuild()
+        self.editor.replace_action(self.index,
+                                   config_module.default_action(type_id))
 
     def _rebuild(self) -> None:
         child = self.content.get_first_child()
@@ -84,22 +175,22 @@ class ActionEditor(Gtk.Box):
             self.content.remove(child)
             child = following
 
-        action = self.action()
-        builder = getattr(self, f"_build_{action.get('type', 'none')}", None)
+        builder = getattr(self, f"_build_{self.action.get('type', 'none')}",
+                          None)
         if builder is None:
             builder = self._build_none
-        widget = builder(action)
+        widget = builder(self.action)
         if widget is not None:
             self.content.append(widget)
 
     # ------------------------------------------------------------------
-    # Test action (selalu di thread, hasil -> toast)
+    # Test aksi (selalu di thread, hasil -> toast)
     # ------------------------------------------------------------------
     def _test_action(self, _btn=None) -> None:
-        action = _copy_action(self.action())
+        action = _copy_action(self.action)
         util.run_async(
             lambda: execute_action(action.get("type", "none"), action),
-            lambda result: util.toast_result(self.window, result, "Test: "),
+            lambda result: util.toast_result(self.editor.window, result, "Test: "),
         )
 
     def _test_button(self) -> Gtk.Widget:
@@ -111,7 +202,8 @@ class ActionEditor(Gtk.Box):
     # Builders per tipe aksi
     # ------------------------------------------------------------------
     def _build_none(self, _action) -> Gtk.Widget:
-        return util.hint("Tidak ada aksi pada trigger ini — tombol diabaikan.")
+        return util.hint("Tidak ada aksi pada slot ini — pilih tipe untuk "
+                         "mengaktifkan, atau pakai tombol × untuk menghapus slot.")
 
     def _build_mode_toggle(self, _action) -> Gtk.Widget:
         return util.hint(
@@ -235,9 +327,9 @@ class ActionEditor(Gtk.Box):
             action["appName"] = app.get("name", "")
             state.mark_dirty()
             state.emit("button-changed", index=state.selected_index)
-            self.refresh()
+            self.editor.refresh()
 
-        AppPickerDialog(self.window, on_pick).present()
+        AppPickerDialog(self.editor.window, on_pick).present()
 
     def _build_system_action(self, action: Dict[str, Any]) -> Gtk.Widget:
         box = util.vertical(spacing=8)
@@ -314,7 +406,7 @@ class ActionEditor(Gtk.Box):
         from home_assistant import ha_client
 
         box = util.vertical(spacing=8)
-        theme = Gtk.IconTheme.get_for_display(self.window.get_display())
+        theme = Gtk.IconTheme.get_for_display(self.editor.window.get_display())
 
         entity_id = action.get("entityId", "")
         if not ha_client.is_configured():
@@ -378,7 +470,7 @@ class ActionEditor(Gtk.Box):
         from ui.ha_dialogs import EntityPickerDialog
 
         def on_pick(entity: Dict[str, Any]) -> None:
-            action = self.action()
+            action = self.action
             action["entityId"] = entity.get("entity_id", "")
             action["friendlyName"] = entity.get("friendly_name", "")
             action["domain"] = entity.get("domain", "")
@@ -386,13 +478,13 @@ class ActionEditor(Gtk.Box):
             action["service"] = services[0]
             state.mark_dirty()
             state.emit("button-changed", index=state.selected_index)
-            self.refresh()
+            self.editor.refresh()
 
-        EntityPickerDialog(self.window, on_pick).present()
+        EntityPickerDialog(self.editor.window, on_pick).present()
 
     def _open_ha_connection(self, _btn) -> None:
         from ui.ha_dialogs import HaConnectionDialog
-        HaConnectionDialog(self.window).present()
+        HaConnectionDialog(self.editor.window).present()
 
     # ------------------------------------------------------------------
     @staticmethod

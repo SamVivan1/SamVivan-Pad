@@ -14,6 +14,8 @@ diproses firmware sendiri.
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
+import config as config_module
+
 # HID keycode (standar keyboard usage) sesuai BLEHIDKeys.h
 _NAMED_KEYS: Dict[str, int] = {
     "ENTER": 0x28, "RETURN": 0x28, "ESC": 0x29, "ESCAPE": 0x29,
@@ -53,8 +55,20 @@ def _key_to_code(key: str) -> int:
     return 0
 
 
-def action_keycode(action: Optional[Dict[str, Any]]) -> int:
-    """Keycode HID untuk sebuah aksi (0 = tidak ada / tidak bisa dikirim)."""
+def action_keycode(action: Any) -> int:
+    """Keycode HID untuk sebuah aksi/slot (0 = tidak ada / tidak bisa dikirim).
+
+    Firmware hanya bisa memetakan satu keycode per slot, jadi untuk slot
+    dengan banyak aksi dipilih keycode dari aksi pertama yang bisa dikirim.
+    """
+    for item in config_module.actions_list(action):
+        code = _single_keycode(item)
+        if code:
+            return code
+    return 0
+
+
+def _single_keycode(action: Optional[Dict[str, Any]]) -> int:
     if not isinstance(action, dict):
         return 0
     kind = action.get("type", "none")

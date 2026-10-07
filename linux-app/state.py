@@ -88,10 +88,43 @@ def set_label(text: str) -> None:
     emit("button-changed", index=selected_index)
 
 
-def set_action(trigger: str, action: Dict[str, Any]) -> None:
-    current_button()[trigger] = action
+def set_action(trigger: str, index: int, action: Dict[str, Any]) -> None:
+    """Ganti satu aksi pada posisi `index` di slot trigger (diposisi lama bila kosong)."""
+    actions = get_actions(trigger)
+    if index < len(actions):
+        actions[index] = action
+    else:
+        actions.append(action)
+    current_button()[trigger] = actions
     mark_dirty()
     emit("button-changed", index=selected_index)
+
+
+def add_action(trigger: str, action: Optional[Dict[str, Any]] = None) -> None:
+    """Tambahkan aksi baru ke slot trigger (default: 'none', bisa diubah via editor)."""
+    actions = get_actions(trigger)
+    actions.append(action if isinstance(action, dict)
+                   else config_module.default_action("none"))
+    current_button()[trigger] = actions
+    mark_dirty()
+    emit("button-changed", index=selected_index)
+
+
+def remove_action(trigger: str, index: int) -> None:
+    """Hapus aksi dari slot trigger; pastikan selalu ada minimal satu slot."""
+    actions = get_actions(trigger)
+    if index < len(actions):
+        del actions[index]
+    if not actions:
+        actions = [config_module.default_action("none")]
+    current_button()[trigger] = actions
+    mark_dirty()
+    emit("button-changed", index=selected_index)
+
+
+def get_actions(trigger: str) -> List[Dict[str, Any]]:
+    """Daftar aksi pada slot trigger (dict lama dinormalisasi jadi list)."""
+    return config_module.actions_list(current_button().get(trigger))
 
 
 def set_timing(field: str, value: int) -> None:

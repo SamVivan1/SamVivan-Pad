@@ -184,6 +184,23 @@ window {
 .mp-err .mp-pill-dot {
   color: @error_color;
 }
+
+.mp-ae-card {
+  background-color: alpha(@view_fg_color, 0.03);
+  border: 1px solid alpha(@view_fg_color, 0.09);
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.mp-ae-num {
+  font-size: 0.7rem;
+  min-width: 26px;
+  text-align: center;
+  border-radius: 999px;
+  border: 1px solid alpha(@accent_color, 0.5);
+  background-color: alpha(@accent_color, 0.16);
+  color: @accent_color;
+}
 """
 
 

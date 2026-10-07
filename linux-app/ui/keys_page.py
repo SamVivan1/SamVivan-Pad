@@ -172,17 +172,21 @@ class KeysPage(Gtk.Box):
             card["name"].set_text(button_cfg.get("label", f"B{position + 1}"))
             for i, (trigger, chip) in enumerate(
                     zip(("single", "double", "hold"), card["chips"])):
-                action = button_cfg.get(trigger) or {"type": "none"}
-                summary = config_module.action_summary(action)
+                action = button_cfg.get(trigger)
+                actions = config_module.actions_list(action)
+                summary = config_module.action_summary(actions)
                 prefix = {"single": "1x", "double": "2x", "hold": "Long"}[trigger]
                 chip.set_text(summary)
                 card["tags"][i].set_text(prefix)
-                armed = action.get("type", "none") != "none"
+                armed = any(a.get("type", "none") != "none" for a in actions)
                 chip.set_css_classes(
                     ["mp-key-summary"] + (["mp-key-summary-armed"] if armed else []))
                 card["detail_rows"][i].set_css_classes(
                     ["mp-key-detail-row"]
                     + (["mp-key-detail-row-armed"] if armed else []))
+                if len(actions) > 1:
+                    parts = [config_module.action_summary(a) for a in actions]
+                    card["detail_rows"][i].set_tooltip_text("\n".join(parts))
 
             widget: Gtk.Widget = card["widget"]
             active = position == state.selected_index

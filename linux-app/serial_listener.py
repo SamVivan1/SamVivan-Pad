@@ -14,6 +14,7 @@ import serial
 from typing import Optional, Callable, Dict, Any
 
 from system_actions import execute_action
+import config as config_module
 
 CONFIG_DIR = os.path.expanduser('~/.config/samvivan-macropad')
 CONFIG_FILE = os.path.join(CONFIG_DIR, 'config.json')
@@ -206,14 +207,16 @@ class SerialDaemonListener:
             return
 
         btn_config = buttons[button_index]
-        action = btn_config.get(trigger_event)
-        if not action or action.get("type") in ["none", None]:
-            return
-
-        action_type = action.get("type")
-        print(f"[DAEMON] Executing action for Button {button_index + 1} ({trigger_event}) -> Type: {action_type}")
-        ok, reason = execute_action(action_type, action)
-        log_msg = f"[ACTION] B{button_index + 1} ({trigger_event.upper()}): {reason} [{'OK' if ok else 'FAIL'}]"
-        print(f"[DAEMON] {log_msg}")
-        if self.on_event_callback:
-            self.on_event_callback(log_msg)
+        actions = config_module.actions_list(btn_config.get(trigger_event))
+        for action in actions:
+            if not isinstance(action, dict) or action.get("type") in ("none", None):
+                continue
+            action_type = action.get("type")
+            print(f"[DAEMON] Executing action for Button {button_index + 1} "
+                  f"({trigger_event}) -> Type: {action_type}")
+            ok, reason = execute_action(action_type, action)
+            log_msg = (f"[ACTION] B{button_index + 1} ({trigger_event.upper()}): "
+                       f"{reason} [{'OK' if ok else 'FAIL'}]")
+            print(f"[DAEMON] {log_msg}")
+            if self.on_event_callback:
+                self.on_event_callback(log_msg)

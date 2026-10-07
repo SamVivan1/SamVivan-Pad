@@ -201,12 +201,27 @@ PRESET_ITEMS: List[Tuple[str, str, str]] = [
 ]
 
 
+def actions_list(raw: Any) -> List[Dict[str, Any]]:
+    """Normalisasi slot trigger menjadi list aksi.
+
+    Satu trigger kini boleh memuat banyak aksi (dict lama tetap diterima).
+    """
+    if isinstance(raw, dict):
+        return [raw]
+    if isinstance(raw, list):
+        return [action for action in raw if isinstance(action, dict)]
+    return []
+
+
 def _merge_button(base: Dict[str, Any], template: Dict[str, Any]) -> Dict[str, Any]:
     merged = dict(template)
     merged.update({k: v for k, v in base.items() if k in ("index", "pin", "label")})
     for trig in ("single", "double", "hold"):
         action = base.get(trig)
-        if isinstance(action, dict) and action.get("type"):
+        if isinstance(action, list):
+            clean = [a for a in action if isinstance(a, dict)]
+            merged[trig] = clean or [{"type": "none"}]
+        elif isinstance(action, dict) and action.get("type"):
             merged[trig] = action
         else:
             merged[trig] = template.get(trig, {"type": "none"})
@@ -228,8 +243,14 @@ def normalize_config(data: Any) -> Tuple[bool, str]:
                 return False, "Entri tombol tidak valid."
             for trig in ("single", "double", "hold"):
                 action = button.get(trig)
-                if action is not None and not isinstance(action, dict):
-                    return False, f"Aksi '{trig}' tidak valid."
+                if action is None:
+                    continue
+                if isinstance(action, dict):
+                    continue
+                if (isinstance(action, list)
+                        and all(isinstance(a, dict) for a in action)):
+                    continue
+                return False, f"Aksi '{trig}' tidak valid."
     return True, "OK"
 
 
@@ -354,8 +375,18 @@ def delete_preset(name: str) -> bool:
         return False
 
 
-def action_summary(action: Dict[str, Any] | None) -> str:
-    """Ringkasan singkat sebuah aksi untuk chip/di inspector."""
+def action_summary(action: Any) -> str:
+    """Ringkasan singkat untuk chip/di inspector (aksi tunggal atau list)."""
+    actions = actions_list(action)
+    if not actions:
+        return "Tidak ada"
+    if len(actions) == 1:
+        return _action_summary_single(actions[0])
+    return f"{_action_summary_single(actions[0])} (+{len(actions) - 1})"
+
+
+def _action_summary_single(action: Dict[str, Any]) -> str:
+    """Ringkasan singkat satu aksi."""
     if not isinstance(action, dict):
         return "Tidak ada"
     kind = action.get("type", "none")
