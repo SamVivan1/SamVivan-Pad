@@ -27,7 +27,7 @@ class KeysPage(Gtk.Box):
 
         self.append(self._build_header())
 
-        panes = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        panes = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
         panes.set_vexpand(True)
 
         grid_host = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -46,13 +46,13 @@ class KeysPage(Gtk.Box):
         panes.append(grid_host)
 
         self.inspector = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        self.inspector.set_size_request(380, -1)
+        self.inspector.set_size_request(392, -1)
         self.inspector.add_css_class("mp-inspector")
         inspector_scroll = Gtk.ScrolledWindow(hexpand=False, vexpand=True)
         inspector_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         inspector_scroll.set_child(self.inspector)
         inspector_scroll.add_css_class("mp-panel")
-        inspector_scroll.set_size_request(390, -1)
+        inspector_scroll.set_size_request(400, -1)
         panes.append(inspector_scroll)
 
         self.append(panes)

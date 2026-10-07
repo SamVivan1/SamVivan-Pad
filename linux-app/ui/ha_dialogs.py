@@ -36,10 +36,10 @@ class HaConnectionDialog(Adw.Window):
         toolbar.add_top_bar(header)
 
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        content.set_margin_top(10)
-        content.set_margin_bottom(12)
-        content.set_margin_start(16)
-        content.set_margin_end(16)
+        content.set_margin_top(14)
+        content.set_margin_bottom(16)
+        content.set_margin_start(24)
+        content.set_margin_end(24)
 
         content.append(util.label("Home Assistant URL", css=["mp-section-title"]))
         self.url_entry = Gtk.Entry()
@@ -234,10 +234,10 @@ class EntityPickerDialog(Adw.Window):
         toolbar.add_top_bar(header)
 
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        content.set_margin_top(6)
-        content.set_margin_bottom(10)
-        content.set_margin_start(12)
-        content.set_margin_end(12)
+        content.set_margin_top(10)
+        content.set_margin_bottom(14)
+        content.set_margin_start(16)
+        content.set_margin_end(16)
         self.content_box = content
         self._empty_connect_btn: Optional[Gtk.Widget] = None
 

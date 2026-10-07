@@ -301,7 +301,10 @@ class MacroPadWindow(Adw.ApplicationWindow):
         dialog = Adw.MessageDialog(transient_for=self, heading="Simpan Konfigurasi")
 
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        body.set_margin_top(4)
+        body.set_margin_top(8)
+        body.set_margin_bottom(4)
+        body.set_margin_start(8)
+        body.set_margin_end(8)
 
         new_button = Gtk.ToggleButton()
         new_button.set_label("Simpan sebagai preset baru")

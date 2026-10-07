@@ -9,14 +9,14 @@ window {
 }
 
 .mp-page {
-  margin: 12px 16px;
+  margin: 14px 24px;
 }
 
 .mp-chassis {
   background-color: @card_bg_color;
   border: 1px solid @borders;
   border-radius: 12px;
-  padding: 16px;
+  padding: 20px;
   box-shadow: none;
 }
 
@@ -24,11 +24,12 @@ window {
   background-color: @card_bg_color;
   border: 1px solid @borders;
   border-radius: 12px;
+  padding: 10px;
 }
 
 .mp-key {
   min-height: 92px;
-  padding: 10px 12px;
+  padding: 12px 16px;
   border-radius: 10px;
   border: 1px solid @borders;
   background-color: @view_bg_color;
@@ -135,7 +136,7 @@ window {
 }
 
 .mp-inspector {
-  padding: 10px;
+  padding: 14px;
 }
 
 .mp-console {
@@ -199,6 +200,20 @@ window {
   background-color: alpha(@accent_color, 0.16);
   color: @accent_color;
   padding: 1px 8px;
+}
+
+.mp-section-title {
+  font-weight: 600;
+  font-size: 0.78rem;
+  color: alpha(@view_fg_color, 0.75);
+  margin-top: 4px;
+}
+
+.mp-entity {
+  background-color: @card_bg_color;
+  border: 1px solid @borders;
+  border-radius: 10px;
+  padding: 10px 12px;
 }
 """
 
