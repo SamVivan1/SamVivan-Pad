@@ -133,6 +133,9 @@ class _ActionCard(Gtk.Box):
             [label for _, label in config_module.ACTION_TYPES]
         )
         self.type_combo.set_hexpand(True)
+        self._syncing = True
+        self.type_combo.set_selected(self._current_index())
+        self._syncing = False
         self.type_combo.connect("notify::selected", self._on_type_changed)
         head.append(self.type_combo)
 
