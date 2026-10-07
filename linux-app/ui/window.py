@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """SamVivan MacroPad - Jendela utama (GTK4 + Libadwaita, HIG GNOME)."""
 
-from typing import Any
+from typing import Any, Optional
 
 import gi
 gi.require_version("Gtk", "4.0")
@@ -41,15 +41,29 @@ class MacroPadWindow(Adw.ApplicationWindow):
         self.stack.connect("notify::visible-child", self._on_stack_changed)
 
         # --- sidebar ---------------------------------------------------
+        self._sidebar_expanded = True
+        self._expanded_sidebar_width: Optional[int] = None
+        self._sidebar_rows = []
         self.sidebar_list = Gtk.ListBox()
         self.sidebar_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.sidebar_list.add_css_class("navigation-sidebar")
         self.sidebar_list.connect("row-selected", self._on_sidebar_selected)
         for name, title, icon in _PAGES:
-            row = Adw.ActionRow(title=title, activatable=True)
-            row.add_prefix(Gtk.Image.new_from_icon_name(icon))
+            row = Gtk.ListBoxRow()
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            image = Gtk.Image.new_from_icon_name(icon)
+            label = Gtk.Label(label=title)
+            label.set_xalign(0.0)
+            box.append(image)
+            box.append(label)
+            row.set_child(box)
+            row.set_activatable(True)
             row._page_name = name  # noqa: SLF001 - penanda internal sederhana
             self.sidebar_list.append(row)
+            self._sidebar_rows.append({
+                "name": name, "title": title,
+                "box": box, "image": image, "label": label, "row": row,
+            })
 
         sidebar_page = Adw.NavigationPage.new(self.sidebar_list, "Navigasi")
         content_page = Adw.NavigationPage.new(self.stack, "SamVivan MacroPad")
@@ -57,11 +71,13 @@ class MacroPadWindow(Adw.ApplicationWindow):
         split = Adw.NavigationSplitView()
         split.set_sidebar(sidebar_page)
         split.set_content(content_page)
-        split.set_collapsed(False)          # jangan pernah sembunyikan konten
-        split.set_min_sidebar_width(210)
-        split.set_max_sidebar_width(260)
+        split.set_collapsed(False)          # sidebar selalu terlihat (ikon saja saat ciut)
+        split.set_min_sidebar_width(160)
+        split.set_max_sidebar_width(220)
         self.split = split
         split.connect("notify::collapsed", self._on_collapsed_changed)
+
+        self.connect("map", lambda *_: GLib.idle_add(self._apply_sidebar_mode))
 
         # --- header bar -------------------------------------------------
         self.title_widget = Adw.WindowTitle.new(
@@ -72,12 +88,12 @@ class MacroPadWindow(Adw.ApplicationWindow):
         self.menu_button.set_menu_model(self._build_menu())
         self.menu_button.set_tooltip_text("Menu")
 
-        # Tombol sidebar: hanya muncul bila split view auto-collapse (jendela sempit)
-        self.sidebar_button = Gtk.ToggleButton()
-        self.sidebar_button.set_icon_name("open-menu-symbolic")
-        self.sidebar_button.set_tooltip_text("Tampilkan navigasi halaman")
-        self.sidebar_button.set_visible(False)
-        self.sidebar_button.connect("toggled", self._on_sidebar_toggled)
+        # Tombol sidebar: perluas / ciutkan (ikon saja vs ikon+label)
+        self.sidebar_toggle = Gtk.ToggleButton()
+        self.sidebar_toggle.set_icon_name("pan-start-symbolic")
+        self.sidebar_toggle.set_tooltip_text("Ciutkan sidebar (ikon saja)")
+        self.sidebar_toggle.set_active(True)
+        self.sidebar_toggle.connect("toggled", self._on_sidebar_toggled)
 
         self.serial_pill = Gtk.Button(label="Serial: memeriksa…")
         self.serial_pill.set_css_classes(["mp-pill", "mp-warn"])
@@ -92,7 +108,7 @@ class MacroPadWindow(Adw.ApplicationWindow):
 
         header = Adw.HeaderBar()
         header.set_title_widget(self.title_widget)
-        header.pack_start(self.sidebar_button)
+        header.pack_start(self.sidebar_toggle)
         header.pack_start(self.menu_button)
         header.pack_end(self.save_button)
         header.pack_end(self.ha_pill)
@@ -176,36 +192,73 @@ class MacroPadWindow(Adw.ApplicationWindow):
         self.toast_overlay.add_toast(toast)
 
     # ------------------------------------------------------------------
-    # Navigasi
+    # Navigasi & sidebar
     # ------------------------------------------------------------------
     @staticmethod
     def _mode_subtitle() -> str:
         return "Home Assistant Mode" if state.mode_index == 1 else "Desktop Mode"
 
+    def _apply_sidebar_mode(self) -> None:
+        """Terapkan mode sidebar: expanded (ikon+label, lebar pas teks)
+        atau collapsed (ikon saja, sidebar sempit)."""
+        expanded = self._sidebar_expanded
+
+        for info in self._sidebar_rows:
+            info["label"].set_visible(expanded)
+            info["box"].set_halign(Gtk.Align.START if expanded else Gtk.Align.CENTER)
+            info["row"].set_tooltip_text(None if expanded else info["title"])
+
+        if expanded and self._expanded_sidebar_width is None:
+            natural = self._measure_sidebar_width()
+            self._expanded_sidebar_width = max(160, natural + 4)
+        width = self._expanded_sidebar_width if expanded else 52
+
+        self.split.set_min_sidebar_width(width)
+        self.split.set_max_sidebar_width(width)
+        self._sidebar_syncing = True
+        self.sidebar_toggle.set_active(expanded)
+        self._sidebar_syncing = False
+        self.sidebar_toggle.set_icon_name(
+            "pan-start-symbolic" if expanded else "pan-end-symbolic")
+        self.sidebar_toggle.set_tooltip_text(
+            "Ciutkan sidebar (ikon saja)" if expanded
+            else "Perluas sidebar (ikon + teks)")
+
+    def _measure_sidebar_width(self) -> int:
+        """Lebar alami daftar navigasi (sampai akhir huruf teks)."""
+        try:
+            return self.sidebar_list.measure(Gtk.Orientation.HORIZONTAL, -1)[1]
+        except Exception:  # noqa: BLE001 - ukuran belum siap
+            return 180
+
     def _on_sidebar_selected(self, _listbox, row) -> None:
         if self._sidebar_syncing or row is None:
             return
         self.stack.set_visible_child_name(row._page_name)  # noqa: SLF001
-        # bila sidebar menutupi konten (mode collapse), buka kontennya
+        # bila konten sedang tertutup (mode jendela sempit), buka kontennya
         if self.split.get_collapsed():
             self.split.set_show_content(True)
             self._sidebar_syncing = True
-            self.sidebar_button.set_active(True)
+            self.sidebar_toggle.set_active(True)
             self._sidebar_syncing = False
 
     def _on_collapsed_changed(self, split, *_args) -> None:
         collapsed = split.get_collapsed()
-        self.sidebar_button.set_visible(collapsed)
-        if not collapsed:
-            split.set_show_content(False)
-            self._sidebar_syncing = True
-            self.sidebar_button.set_active(False)
-            self._sidebar_syncing = False
+        self._sidebar_syncing = True
+        if collapsed:
+            self.sidebar_toggle.set_active(split.get_show_content())
+        else:
+            self.sidebar_toggle.set_active(self._sidebar_expanded)
+        self._sidebar_syncing = False
 
     def _on_sidebar_toggled(self, button: Gtk.ToggleButton) -> None:
         if self._sidebar_syncing:
             return
-        self.split.set_show_content(button.get_active())
+        if self.split.get_collapsed():
+            self.split.set_show_content(button.get_active())
+        else:
+            self._sidebar_expanded = button.get_active()
+            self._apply_sidebar_mode()
 
     def _on_stack_changed(self, *_args) -> None:
         name = self.stack.get_visible_child_name()
