@@ -142,6 +142,48 @@ window {
   font-family: monospace;
   font-size: 0.86rem;
 }
+
+.mp-pill {
+  border-radius: 999px;
+  border: 1px solid alpha(@view_fg_color, 0.18);
+  background-color: alpha(@view_fg_color, 0.06);
+  color: alpha(@view_fg_color, 0.9);
+  padding: 0 10px;
+}
+
+.mp-pill-dot {
+  font-size: 0.7rem;
+}
+
+.mp-ok {
+  border-color: alpha(@success_color, 0.55);
+  background-color: alpha(@success_color, 0.14);
+  color: @success_color;
+}
+
+.mp-ok .mp-pill-dot {
+  color: @success_color;
+}
+
+.mp-warn {
+  border-color: alpha(@warning_color, 0.55);
+  background-color: alpha(@warning_color, 0.14);
+  color: @warning_color;
+}
+
+.mp-warn .mp-pill-dot {
+  color: @warning_color;
+}
+
+.mp-err {
+  border-color: alpha(@error_color, 0.55);
+  background-color: alpha(@error_color, 0.12);
+  color: @error_color;
+}
+
+.mp-err .mp-pill-dot {
+  color: @error_color;
+}
 """
 
 

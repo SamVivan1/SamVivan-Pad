@@ -95,11 +95,11 @@ class MacroPadWindow(Adw.ApplicationWindow):
         self.sidebar_toggle.set_active(True)
         self.sidebar_toggle.connect("toggled", self._on_sidebar_toggled)
 
-        self.serial_pill = Gtk.Button(label="Serial: memeriksa…")
+        self.serial_pill, self.serial_pill_dot, self.serial_pill_lbl = self._make_pill()
         self.serial_pill.set_css_classes(["mp-pill", "mp-warn"])
         self.serial_pill.connect("clicked", self._on_serial_pill_clicked)
 
-        self.ha_pill = Gtk.Button(label="HA: memeriksa…")
+        self.ha_pill, self.ha_pill_dot, self.ha_pill_lbl = self._make_pill()
         self.ha_pill.set_css_classes(["mp-pill", "mp-warn"])
         self.ha_pill.connect("clicked", self._on_ha_pill_clicked)
 
@@ -190,6 +190,20 @@ class MacroPadWindow(Adw.ApplicationWindow):
         toast = Adw.Toast(title=message)
         toast.set_timeout(6 if kind == "error" else 4)
         self.toast_overlay.add_toast(toast)
+
+    @staticmethod
+    def _make_pill():
+        """Pill status header: ikon titik berwarna + label."""
+        button = Gtk.Button()
+        button.set_has_frame(False)
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        dot = Gtk.Label(label="●")
+        dot.set_css_classes(["mp-pill-dot"])
+        label = Gtk.Label(label="…")
+        box.append(dot)
+        box.append(label)
+        button.set_child(box)
+        return button, dot, label
 
     # ------------------------------------------------------------------
     # Navigasi & sidebar
@@ -287,24 +301,25 @@ class MacroPadWindow(Adw.ApplicationWindow):
     # ------------------------------------------------------------------
     def _sync_pills(self) -> None:
         if state.serial_connected:
-            self.serial_pill.set_label(f"Serial: {state.serial_port or '?'}")
+            self.serial_pill_lbl.set_text(f"Serial: {state.serial_port or '?'}")
             self.serial_pill.set_css_classes(["mp-pill", "mp-ok"])
         else:
-            self.serial_pill.set_label("Serial: —")
+            self.serial_pill_lbl.set_text("Serial: —")
             self.serial_pill.set_css_classes(["mp-pill", "mp-err"])
         self.serial_pill.set_tooltip_text(
-            "Klik untuk membuka console serial" if state.serial_connected
+            "Macropad terhubung — klik untuk membuka console serial"
+            if state.serial_connected
             else "Macropad belum terdeteksi — colok USB lalu buka console")
 
         if state.ha_connected:
-            self.ha_pill.set_label("HA: Terhubung")
+            self.ha_pill_lbl.set_text("HA: Terhubung")
             self.ha_pill.set_css_classes(["mp-pill", "mp-ok"])
         elif not state.ha_message:
-            self.ha_pill.set_label("HA: memeriksa…")
+            self.ha_pill_lbl.set_text("HA: memeriksa…")
             self.ha_pill.set_css_classes(["mp-pill", "mp-warn"])
         else:
-            self.ha_pill.set_label("HA: terputus")
-            self.ha_pill.set_css_classes(["mp-pill", "mp-warn"])
+            self.ha_pill_lbl.set_text("HA: terputus")
+            self.ha_pill.set_css_classes(["mp-pill", "mp-err"])
         self.ha_pill.set_tooltip_text(state.ha_message or "Status Home Assistant")
 
     def _sync_save_button(self) -> None:
