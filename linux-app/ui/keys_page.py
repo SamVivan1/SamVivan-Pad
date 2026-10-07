@@ -132,20 +132,37 @@ class KeysPage(Gtk.Box):
         head.append(name_label)
         body.append(head)
 
-        chip_row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        chip_row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        chip_row.set_css_classes(["mp-key-details"])
         chip_labels: List[Gtk.Label] = []
-        for trig, _ in config_module.TRIGGERS:
-            chip = util.label("-", css=["mp-chip"])
+        tag_labels: List[Gtk.Label] = []
+        detail_rows: List[Gtk.Box] = []
+        for trig, trig_label in config_module.TRIGGERS:
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            row.set_css_classes(["mp-key-detail-row"])
+            row.set_tooltip_text(trig_label)
+            tag = util.label("-", css=["mp-key-trigger"])
+            tag.set_xalign(0.0)
+            row.append(tag)
+            chip = util.label("-", css=["mp-key-summary"])
             chip.set_ellipsize(Pango.EllipsizeMode.END)
             chip.set_xalign(0.0)
-            chip_row.append(chip)
+            chip.set_hexpand(True)
+            row.append(chip)
+            chip_row.append(row)
             chip_labels.append(chip)
+            tag_labels.append(tag)
+            detail_rows.append(row)
         body.append(chip_row)
 
         button.set_child(body)
         button.connect("clicked", self._on_card_clicked, index)
 
-        return {"widget": button, "name": name_label, "chips": chip_labels, "index": index}
+        return {
+            "widget": button, "name": name_label,
+            "chips": chip_labels, "tags": tag_labels,
+            "detail_rows": detail_rows, "index": index,
+        }
     def _on_card_clicked(self, _button, index: int) -> None:
         state.select_button(index)
 
@@ -153,15 +170,19 @@ class KeysPage(Gtk.Box):
         for position, card in enumerate(self.cards):
             button_cfg = config_module.get_button(state.cfg, state.mode_index, position)
             card["name"].set_text(button_cfg.get("label", f"B{position + 1}"))
-            for trigger, chip in zip(("single", "double", "hold"), card["chips"]):
+            for i, (trigger, chip) in enumerate(
+                    zip(("single", "double", "hold"), card["chips"])):
                 action = button_cfg.get(trigger) or {"type": "none"}
                 summary = config_module.action_summary(action)
-                prefix = {"single": "1x", "double": "2x", "hold": "H"}[trigger]
-                chip.set_text(f"{prefix}: {summary}")
-                if action.get("type", "none") == "none":
-                    chip.set_css_classes(["mp-chip"])
-                else:
-                    chip.set_css_classes(["mp-chip", "mp-chip-armed"])
+                prefix = {"single": "1x", "double": "2x", "hold": "Long"}[trigger]
+                chip.set_text(summary)
+                card["tags"][i].set_text(prefix)
+                armed = action.get("type", "none") != "none"
+                chip.set_css_classes(
+                    ["mp-key-summary"] + (["mp-key-summary-armed"] if armed else []))
+                card["detail_rows"][i].set_css_classes(
+                    ["mp-key-detail-row"]
+                    + (["mp-key-detail-row-armed"] if armed else []))
 
             widget: Gtk.Widget = card["widget"]
             active = position == state.selected_index

@@ -72,6 +72,46 @@ window {
   margin-top: 0;
 }
 
+.mp-key-details {
+  border-top: 1px solid alpha(@borders, 0.8);
+  padding-top: 5px;
+  margin-top: 2px;
+}
+
+.mp-key-detail-row {
+  margin-top: 2px;
+  padding: 3px 6px;
+  border-radius: 7px;
+  background-color: alpha(@view_fg_color, 0.04);
+}
+
+.mp-key-detail-row-armed {
+  background-color: alpha(@accent_color, 0.10);
+}
+
+.mp-key-trigger {
+  font-size: 0.66rem;
+  font-weight: 800;
+  color: alpha(@view_fg_color, 0.50);
+  padding: 1px 6px;
+  border-radius: 5px;
+  background-color: alpha(@view_fg_color, 0.08);
+}
+
+.mp-key-detail-row-armed .mp-key-trigger {
+  color: @accent_bg_color;
+  background-color: alpha(@accent_color, 0.16);
+}
+
+.mp-key-summary {
+  font-size: 0.72rem;
+  color: alpha(@view_fg_color, 0.80);
+}
+
+.mp-key-summary-armed {
+  color: alpha(@view_fg_color, 0.95);
+}
+
 .mp-chip {
   font-size: 0.68rem;
   padding: 2px 8px;
