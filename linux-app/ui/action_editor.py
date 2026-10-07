@@ -127,6 +127,8 @@ class _ActionCard(Gtk.Box):
 
         head = util.horizontal(spacing=6)
         number = util.label(f"A{index + 1}", css=["mp-ae-num"])
+        number.set_xalign(0.5)
+        number.set_valign(Gtk.Align.CENTER)
         head.append(number)
 
         self.type_combo = Gtk.DropDown.new_from_strings(

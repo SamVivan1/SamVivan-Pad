@@ -194,12 +194,11 @@ window {
 
 .mp-ae-num {
   font-size: 0.7rem;
-  min-width: 26px;
-  text-align: center;
   border-radius: 999px;
   border: 1px solid alpha(@accent_color, 0.5);
   background-color: alpha(@accent_color, 0.16);
   color: @accent_color;
+  padding: 1px 8px;
 }
 """
 
