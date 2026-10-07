@@ -27,9 +27,9 @@ window {
 }
 
 .mp-key {
-  min-height: 56px;
-  padding: 6px 10px;
-  border-radius: 8px;
+  min-height: 92px;
+  padding: 10px 12px;
+  border-radius: 10px;
   border: 1px solid @borders;
   background-color: @view_bg_color;
 }
@@ -50,18 +50,21 @@ window {
 }
 
 .mp-key-index {
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: alpha(@view_fg_color, 0.5);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: alpha(@view_fg_color, 0.9);
+  padding: 1px 8px;
+  border-radius: 999px;
+  background-color: alpha(@view_fg_color, 0.10);
 }
 
 .mp-key-pin {
-  font-size: 0.64rem;
+  font-size: 0.62rem;
   color: alpha(@view_fg_color, 0.38);
 }
 
 .mp-key-label {
-  font-size: 0.9rem;
+  font-size: 0.94rem;
   font-weight: 600;
 }
 

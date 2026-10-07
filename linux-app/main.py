@@ -117,6 +117,12 @@ class MacroPadApplication(Adw.Application):
         _preload_apps()
 
     def do_activate(self) -> None:
+        if not getattr(self, "_css_loaded", False):
+            from ui.css import load_css
+            display = Gdk.DisplayManager.get().get_default_display()
+            if display is not None:
+                load_css(display)
+            self._css_loaded = True
         from ui.window import MacroPadWindow
         window = self.get_active_window()
         if window is None:
