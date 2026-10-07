@@ -27,13 +27,11 @@ window {
 }
 
 .mp-key {
-  min-width: 140px;
-  min-height: 92px;
-  padding: 8px 10px;
-  border-radius: 10px;
+  min-height: 56px;
+  padding: 6px 10px;
+  border-radius: 8px;
   border: 1px solid @borders;
   background-color: @view_bg_color;
-  box-shadow: none;
 }
 
 .mp-key:hover {
@@ -42,33 +40,33 @@ window {
 
 .mp-key.mp-key-active {
   border-color: @accent_color;
-  background-color: alpha(@accent_color, 0.12);
+  background-color: alpha(@accent_color, 0.10);
 }
 
 .mp-key:active,
 .mp-key.mp-key-pressed {
-  background-color: alpha(@success_color, 0.18);
+  background-color: alpha(@success_color, 0.14);
   border-color: @success_color;
 }
 
 .mp-key-index {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  color: alpha(@view_fg_color, 0.55);
+  color: alpha(@view_fg_color, 0.5);
 }
 
 .mp-key-pin {
-  font-size: 0.66rem;
-  color: alpha(@view_fg_color, 0.40);
+  font-size: 0.64rem;
+  color: alpha(@view_fg_color, 0.38);
 }
 
 .mp-key-label {
-  font-size: 0.94rem;
+  font-size: 0.9rem;
   font-weight: 600;
 }
 
 .mp-key-chips {
-  margin-top: 4px;
+  margin-top: 0;
 }
 
 .mp-chip {

@@ -110,38 +110,40 @@ class KeysPage(Gtk.Box):
     def _build_card(self, index: int) -> Dict[str, Any]:
         button = Gtk.Button()
         button.set_css_classes(["mp-key"])
+        button.set_has_frame(False)
 
-        body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        body = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
 
-        top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        left = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
         index_label = util.label(f"B{index + 1}", css=["mp-key-index"])
-        top.append(index_label)
         pin_label = util.label(f"GPIO {config_module.PINOUT[index]}", css=["mp-key-pin"])
-        pin_label.set_halign(Gtk.Align.END)
-        pin_label.set_hexpand(True)
-        top.append(pin_label)
-        body.append(top)
+        left.append(index_label)
+        left.append(pin_label)
+        body.append(left)
 
+        mid = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         name_label = util.label("—", css=["mp-key-label"])
         name_label.set_ellipsize(Pango.EllipsizeMode.END)
-        body.append(name_label)
+        name_label.set_xalign(0.0)
+        mid.append(name_label)
+        mid.set_hexpand(True)
+        body.append(mid)
 
-        chips = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
-        chips.set_css_classes(["mp-key-chips"])
+        right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
         chip_labels: List[Gtk.Label] = []
-        for _trigger, _trigger_label in config_module.TRIGGERS:
-            chip = util.label("—", css=["mp-chip"])
+        for trig, _ in config_module.TRIGGERS:
+            chip = util.label("-", css=["mp-chip"])
             chip.set_ellipsize(Pango.EllipsizeMode.END)
-            chip.set_xalign(0.0)
-            chips.append(chip)
+            chip.set_xalign(1.0)
+            chip.set_justify(Gtk.Justification.RIGHT)
+            right.append(chip)
             chip_labels.append(chip)
-        body.append(chips)
+        body.append(right)
 
         button.set_child(body)
         button.connect("clicked", self._on_card_clicked, index)
 
         return {"widget": button, "name": name_label, "chips": chip_labels, "index": index}
-
     def _on_card_clicked(self, _button, index: int) -> None:
         state.select_button(index)
 
