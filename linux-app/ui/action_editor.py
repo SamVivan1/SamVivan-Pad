@@ -24,6 +24,10 @@ def _copy_action(action: Dict[str, Any]) -> Dict[str, Any]:
     return copy.deepcopy(action)
 
 
+# Short prefix shown on cards so each action identifies its trigger at a glance.
+_TRIGGER_PREFIX = {"single": "1x", "double": "2x", "hold": "Hold"}
+
+
 class ActionEditor(Gtk.Box):
     """Editor for a single trigger: action list + add button."""
 
@@ -34,7 +38,8 @@ class ActionEditor(Gtk.Box):
         self._cards: List["_ActionCard"] = []
 
         head = util.horizontal(spacing=8)
-        title = util.label(trigger_label, css=["mp-trigger-title"])
+        title = util.label(trigger_label,
+                           css=["mp-trigger-title", f"mp-trig-{trigger}"])
         title.set_hexpand(True)
         head.append(title)
 
@@ -130,7 +135,10 @@ class _ActionCard(Gtk.Box):
         self._syncing = False
 
         head = util.horizontal(spacing=6)
-        number = util.label(f"A{index + 1}", css=["mp-ae-num"])
+        prefix = _TRIGGER_PREFIX.get(editor.trigger)
+        badge_text = f"{prefix} · A{index + 1}" if prefix else f"A{index + 1}"
+        number = util.label(badge_text,
+                            css=["mp-ae-num", f"mp-trig-{editor.trigger}"])
         number.set_xalign(0.5)
         number.set_valign(Gtk.Align.CENTER)
         head.append(number)

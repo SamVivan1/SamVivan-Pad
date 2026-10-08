@@ -203,9 +203,58 @@ window {
 }
 
 .mp-move {
-  min-width: 26px;
-  min-height: 26px;
+  min-width: 24px;
+  min-height: 24px;
   padding: 2px;
+}
+
+/* Trigger colour coding: Single = blue, Double = green, Hold = orange. ---- */
+.mp-trigger-title {
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.mp-trig-single { color: @accent_color; }
+.mp-trig-double { color: @success_color; }
+.mp-trig-hold { color: @warning_color; }
+
+.mp-ae-num.mp-trig-single {
+  border-color: alpha(@accent_color, 0.5);
+  background-color: alpha(@accent_color, 0.16);
+}
+.mp-ae-num.mp-trig-double {
+  border-color: alpha(@success_color, 0.5);
+  background-color: alpha(@success_color, 0.16);
+}
+.mp-ae-num.mp-trig-hold {
+  border-color: alpha(@warning_color, 0.5);
+  background-color: alpha(@warning_color, 0.16);
+}
+
+.mp-trig-switch > button {
+  font-weight: 600;
+}
+.mp-trig-switch > button.mp-trig-single:checked {
+  background-color: alpha(@accent_color, 0.22);
+}
+.mp-trig-switch > button.mp-trig-double:checked {
+  background-color: alpha(@success_color, 0.22);
+}
+.mp-trig-switch > button.mp-trig-hold:checked {
+  background-color: alpha(@warning_color, 0.22);
+}
+
+.mp-key-trigger.mp-trig-single {
+  color: @accent_color;
+  background-color: alpha(@accent_color, 0.12);
+}
+.mp-key-trigger.mp-trig-double {
+  color: @success_color;
+  background-color: alpha(@success_color, 0.12);
+}
+.mp-key-trigger.mp-trig-hold {
+  color: @warning_color;
+  background-color: alpha(@warning_color, 0.12);
 }
 
 .mp-section-title {

@@ -17,12 +17,16 @@ from ui.action_editor import ActionEditor
 from ui import util
 
 
+_TRIGGER_SHORT = {"single": "1x", "double": "2x", "hold": "Hold"}
+
+
 class KeysPage(Gtk.Box):
     def __init__(self, window) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.add_css_class("mp-page")
         self.window = window
         self._syncing = False
+        self._active_trigger = "single"
         self.cards: List[Dict[str, Any]] = []
 
         self.append(self._build_header())
@@ -178,6 +182,8 @@ class KeysPage(Gtk.Box):
                 prefix = {"single": "1x", "double": "2x", "hold": "Hold"}[trigger]
                 chip.set_text(summary)
                 card["tags"][i].set_text(prefix)
+                card["tags"][i].set_css_classes(
+                    ["mp-key-trigger", f"mp-trig-{trigger}"])
                 armed = any(a.get("type", "none") != "none" for a in actions)
                 chip.set_css_classes(
                     ["mp-key-summary"] + (["mp-key-summary-armed"] if armed else []))
@@ -220,15 +226,64 @@ class KeysPage(Gtk.Box):
         self.inspector.append(label_entry)
 
         self.editors: List[ActionEditor] = []
-        for position, (trigger, trigger_label) in enumerate(config_module.TRIGGERS):
-            if position > 0:
-                separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-                separator.set_margin_top(6)
-                separator.set_margin_bottom(6)
-                self.inspector.append(separator)
+        self.editors_by_trigger: Dict[str, ActionEditor] = {}
+
+        switcher = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        switcher.set_css_classes(["linked", "mp-trig-switch"])
+        self.trig_buttons: Dict[str, Gtk.ToggleButton] = {}
+
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        self.stack.set_vexpand(True)
+
+        group_button = None
+        for trigger, trigger_label in config_module.TRIGGERS:
             editor = ActionEditor(self.window, trigger, trigger_label)
             self.editors.append(editor)
-            self.inspector.append(editor)
+            self.editors_by_trigger[trigger] = editor
+            self.stack.add_named(editor, trigger)
+
+            button = Gtk.ToggleButton(label=_TRIGGER_SHORT.get(trigger, trigger))
+            button.set_hexpand(True)
+            button.set_css_classes([f"mp-trig-{trigger}"])
+            if group_button is None:
+                group_button = button
+            else:
+                button.set_group(group_button)
+            button.connect("toggled", self._on_trigger_toggled, trigger)
+            self.trig_buttons[trigger] = button
+            switcher.append(button)
+
+        self._syncing = True
+        active_button = self.trig_buttons.get(self._active_trigger)
+        if active_button is not None:
+            active_button.set_active(True)
+        self._syncing = False
+        self.stack.set_visible_child_name(self._active_trigger)
+
+        self.inspector.append(switcher)
+        self.inspector.append(self.stack)
+        self._update_trigger_tabs()
+
+    # ------------------------------------------------------------------
+    def _on_trigger_toggled(self, button: Gtk.ToggleButton, trigger: str) -> None:
+        if self._syncing or not button.get_active():
+            return
+        self._active_trigger = trigger
+        self.stack.set_visible_child_name(trigger)
+
+    def _update_trigger_tabs(self) -> None:
+        """Refresh the tab labels with the number of active actions per trigger."""
+        for trigger, button in self.trig_buttons.items():
+            actions = config_module.actions_list(
+                state.current_button().get(trigger))
+            count = sum(1 for a in actions
+                        if isinstance(a, dict) and a.get("type") not in (None, "none"))
+            text = _TRIGGER_SHORT.get(trigger, trigger)
+            if count:
+                text = f"{text} · {count}"
+            if button.get_label() != text:
+                button.set_label(text)
 
     def _on_label_changed(self, entry: Gtk.Entry) -> None:
         if state.current_button().get("label") == entry.get_text():
@@ -249,6 +304,7 @@ class KeysPage(Gtk.Box):
             self.rebuild_inspector()
         elif event == "button-changed":
             self.refresh_grid()
+            self._update_trigger_tabs()
         elif event == "timing-changed":
             self.timing_label.set_text(self._timing_text())
         elif event == "ha-entities-changed":
