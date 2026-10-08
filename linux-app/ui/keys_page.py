@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-SamVivan MacroPad - Halaman konfigurasi tombol.
+SamVivan MacroPad - Button configuration page.
 
-Grid visual 8 keycap + switch mode + inspector aksi per trigger.
+Visual grid of 8 keycaps + mode switch + per-trigger action inspector.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import gi
 gi.require_version("Gtk", "4.0")
@@ -105,7 +105,7 @@ class KeysPage(Gtk.Box):
         self._syncing = False
 
     # ------------------------------------------------------------------
-    # Kartu tombol
+    # Button cards
     # ------------------------------------------------------------------
     def _build_card(self, index: int) -> Dict[str, Any]:
         button = Gtk.Button()
@@ -175,7 +175,7 @@ class KeysPage(Gtk.Box):
                 action = button_cfg.get(trigger)
                 actions = config_module.actions_list(action)
                 summary = config_module.action_summary(actions)
-                prefix = {"single": "1x", "double": "2x", "hold": "Long"}[trigger]
+                prefix = {"single": "1x", "double": "2x", "hold": "Hold"}[trigger]
                 chip.set_text(summary)
                 card["tags"][i].set_text(prefix)
                 armed = any(a.get("type", "none") != "none" for a in actions)
@@ -214,7 +214,7 @@ class KeysPage(Gtk.Box):
 
         label_entry = Gtk.Entry()
         label_entry.set_text(button_cfg.get("label", ""))
-        label_entry.set_placeholder_text("Nama tombol…")
+        label_entry.set_placeholder_text("Button name…")
         label_entry.set_hexpand(True)
         label_entry.connect("changed", self._on_label_changed)
         self.inspector.append(label_entry)
@@ -258,7 +258,7 @@ class KeysPage(Gtk.Box):
 
     # ------------------------------------------------------------------
     def flash(self, index: int) -> None:
-        """Animasi “tertekan” saat tombol fisik ditekan."""
+        """“Pressed” animation when the physical key is pressed."""
         if not 0 <= index < len(self.cards):
             return
         widget = self.cards[index]["widget"]

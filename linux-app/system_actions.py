@@ -17,19 +17,19 @@ SYSTEM_ACTION_PRESETS = [
         "id": "mic_toggle_mute",
         "name": "Toggle Microphone Mute",
         "category": "Audio",
-        "description": "Mute/Unmute mikrofon saat ini (Meeting/Discord)"
+        "description": "Mute/Unmute the current microphone (Meeting/Discord)"
     },
     {
         "id": "volume_up_5",
         "name": "Volume Up (+5%)",
         "category": "Audio",
-        "description": "Naikkan volume suara 5%"
+        "description": "Raise the output volume by 5%"
     },
     {
         "id": "volume_down_5",
         "name": "Volume Down (-5%)",
         "category": "Audio",
-        "description": "Turunkan volume suara 5%"
+        "description": "Lower the output volume by 5%"
     },
     {
         "id": "volume_toggle_mute",
@@ -41,44 +41,44 @@ SYSTEM_ACTION_PRESETS = [
         "id": "lock_screen",
         "name": "Lock Ubuntu Session",
         "category": "System",
-        "description": "Kunci layar desktop Ubuntu seketika"
+        "description": "Lock the Ubuntu desktop session instantly"
     },
     {
         "id": "open_terminal",
         "name": "Open New Terminal",
         "category": "System",
-        "description": "Buka jendela terminal baru"
+        "description": "Open a new terminal window"
     },
     {
         "id": "screenshot_interactive",
         "name": "Interactive Screenshot (Area)",
         "category": "System",
-        "description": "Ambil screenshot area layar terpilih"
+        "description": "Take a screenshot of a selected screen area"
     },
     {
         "id": "media_play_pause",
         "name": "Media Play / Pause",
         "category": "Media",
-        "description": "Play atau pause pemutar musik / YouTube via playerctl"
+        "description": "Play or pause the music player / YouTube via playerctl"
     },
     {
         "id": "media_next",
         "name": "Media Next Track",
         "category": "Media",
-        "description": "Lagu berikutnya via playerctl"
+        "description": "Next track via playerctl"
     },
     {
         "id": "media_prev",
         "name": "Media Previous Track",
         "category": "Media",
-        "description": "Lagu sebelumnya via playerctl"
+        "description": "Previous track via playerctl"
     }
 ]
 
 # ---------------------------------------------------------------------------
-# Simulasi keyboard & media (dipakai aksi shortcut / text / media)
+# Keyboard & media simulation (used by the shortcut / text / media actions)
 # ---------------------------------------------------------------------------
-# GNOME Wayland tidak mengizinkan xdotool, jadi urutan preferensinya:
+# GNOME Wayland does not allow xdotool, so the preference order is:
 # wtype (Wayland) -> ydotool (uinput) -> xdotool (X11).
 KEY_NAME_MAP = {
     "ENTER": "Return", "ESC": "Escape", "BACKSPACE": "BackSpace", "TAB": "Tab",
@@ -96,10 +96,10 @@ def _injector() -> str:
 
 
 def _injector_help() -> str:
-    return ("Simulasi keyboard butuh salah satu dari: `wtype` (Wayland, "
-            "sudo apt install wtype), `ydotool` (rekomendasi GNOME Wayland: "
-            "sudo apt install ydotool lalu jalankan daemon `sudo ydotoold` "
-            "atau `systemctl --user start ydotool`), atau `xdotool` (X11).")
+    return ("Keyboard simulation requires one of: `wtype` (Wayland, "
+            "sudo apt install wtype), `ydotool` (recommended on GNOME Wayland: "
+            "sudo apt install ydotool then run the daemon `sudo ydotoold` "
+            "or `systemctl --user start ydotool`), or `xdotool` (X11).")
 
 
 def _xkey(key: str) -> str:
@@ -107,7 +107,7 @@ def _xkey(key: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# ydotool memakai keycode Linux/evdev (bukan nama tombol), contoh: 29:1 = press Ctrl
+# ydotool uses Linux/evdev keycodes (not key names), e.g. 29:1 = press Ctrl
 # ---------------------------------------------------------------------------
 _EVDEV_MODS = {"ctrl": 29, "alt": 56, "shift": 42, "super": 125}
 _EVDEV_KEYS = {
@@ -138,7 +138,7 @@ def _evdev_key(name: str) -> Optional[int]:
 
 
 def _ydotool_combo(mods: List[str], key: str) -> List[str]:
-    """Bangun argumen `ydotool key` (press lalu release seluruh tombol)."""
+    """Build the `ydotool key` arguments (press then release every key)."""
     codes = []
     for mod in mods:
         if mod in _EVDEV_MODS:
@@ -161,7 +161,7 @@ def _run(cmd: List[str]) -> Tuple[bool, str]:
         detail = (result.stderr or result.stdout or "").strip().splitlines()
         return False, detail[0] if detail else f"{cmd[0]} exit {result.returncode}"
     except FileNotFoundError:
-        return False, f"{cmd[0]} tidak ditemukan"
+        return False, f"{cmd[0]} not found"
     except Exception as exc:
         return False, str(exc)
 
@@ -184,7 +184,7 @@ def _send_shortcut(modifiers: List[str], key: str) -> Tuple[bool, str]:
     mods = [m for m in MODIFIER_ORDER if m in (modifiers or [])]
     xkey = _xkey(key or "")
     if not xkey:
-        return False, "Target key belum dipilih"
+        return False, "Target key not selected yet"
 
     if tool == "wtype":
         cmd = ["wtype"]
@@ -198,7 +198,7 @@ def _send_shortcut(modifiers: List[str], key: str) -> Tuple[bool, str]:
     if tool == "ydotool":
         args = _ydotool_combo(mods, xkey)
         if not args:
-            return False, f"Key '{key}' tidak dikenali untuk ydotool"
+            return False, f"Key '{key}' not recognized by ydotool"
         return _run(["ydotool", "key", *args])
 
     combo = "+".join(mods + [xkey])
@@ -215,7 +215,7 @@ MEDIA_XF86 = {
 
 
 def _send_media(media_key: str) -> Tuple[bool, str]:
-    """Kontrol media: wpctl/pactl untuk volume, playerctl untuk pemutar musik."""
+    """Media control: wpctl/pactl for volume, playerctl for the music player."""
     if media_key in ("VOL_UP", "VOL_DOWN", "MUTE"):
         step = "5%+" if media_key == "VOL_UP" else ("5%-" if media_key == "VOL_DOWN" else None)
         if shutil.which("wpctl"):
@@ -234,7 +234,7 @@ def _send_media(media_key: str) -> Tuple[bool, str]:
                        "PREV_TRACK": "previous"}[media_key]
             return _run(["playerctl", command])
 
-    # Fallback: tombol media XF86 via simulator keyboard
+    # Fallback: XF86 media keys via the keyboard simulator
     xf86 = MEDIA_XF86.get(media_key)
     if xf86:
         tool = _injector()
@@ -246,27 +246,27 @@ def _send_media(media_key: str) -> Tuple[bool, str]:
             args = _ydotool_combo([], xf86)
             if args:
                 return _run(["ydotool", "key", *args])
-            return False, f"Tombol media '{media_key}' tidak dikenali untuk ydotool"
+            return False, f"Media key '{media_key}' not recognized by ydotool"
     if media_key in ("VOL_UP", "VOL_DOWN", "MUTE"):
-        return False, "Volume butuh wpctl atau pactl (pipewire/pulseaudio)."
-    return False, "Pemutar musik butuh playerctl (sudo apt install playerctl)."
+        return False, "Volume requires wpctl or pactl (pipewire/pulseaudio)."
+    return False, "The music player requires playerctl (sudo apt install playerctl)."
 
 
 def execute_action(action_type: str, action_data: Dict[str, Any]) -> Tuple[bool, str]:
     """Execute a configured action based on its type and payload."""
     try:
-        # 0. Ganti layer Desktop <-> Home Assistant (dihandle firmware via LED)
+        # 0. Toggle the Desktop <-> Home Assistant layer (handled by firmware via LED)
         if action_type == 'mode_toggle':
-            return True, "Mode layer diatur oleh firmware macropad (LED)"
+            return True, "Mode layer is controlled by the macropad firmware (LED)"
 
-        # 0b. Simulasi keyboard / teks / media
+        # 0b. Keyboard / text / media simulation
         elif action_type == 'shortcut':
             return _send_shortcut(action_data.get('modifiers', []), action_data.get('key', ''))
 
         elif action_type == 'text':
             text = action_data.get('text', '')
             if not text:
-                return False, "Teks kosong"
+                return False, "Empty text"
             return _send_text(text)
 
         elif action_type == 'media':
@@ -321,7 +321,7 @@ def execute_action(action_type: str, action_data: Dict[str, Any]) -> Tuple[bool,
                 domain = entity_id.split('.')[0]
 
             if not domain or not service:
-                return False, "Home Assistant domain atau service belum disetel"
+                return False, "Home Assistant domain or service not set"
 
             return ha_client.call_service(domain, service, entity_id, data)
 
@@ -399,7 +399,7 @@ def _execute_system_preset(preset_id: str) -> Tuple[bool, str]:
             return True, "Triggered interactive screenshot"
         else:
             # Trigger via keyboard simulation or notify
-            subprocess.Popen(['notify-send', 'MacroPad', 'Gunakan PrintScreen untuk screenshot'], start_new_session=True)
+            subprocess.Popen(['notify-send', 'MacroPad', 'Use PrintScreen to take a screenshot'], start_new_session=True)
             return True, "Screenshot requested"
 
     # Media Controls via playerctl

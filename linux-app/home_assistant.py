@@ -8,29 +8,51 @@ import os
 import json
 import shutil
 import subprocess
+import socket
 import time
+import urllib.error
+import urllib.request
 from typing import Dict, Any, List, Tuple, Optional
-import requests
+
+
+def _http_request(method: str, url: str, headers: Optional[dict] = None,
+                  body: Optional[bytes] = None,
+                  timeout: float = 5.0) -> Tuple[int, bytes]:
+    """Minimal HTTP request using only the standard library.
+
+    Using urllib instead of the third-party ``requests`` package keeps the
+    process about 20 MB lighter. Returns ``(status_code, body_bytes)``; HTTP
+    error responses are returned normally (not raised). Network/timeout
+    failures propagate as exceptions for the caller to handle.
+    """
+    request = urllib.request.Request(
+        url, data=body, headers=headers or {}, method=method)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.status, response.read()
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read()
+
 
 ENV_CONFIG = os.path.expanduser('~/.config/home-assistant/env')
 LOCAL_CONFIG = os.path.expanduser('~/.config/samvivan-macropad/ha_config.json')
 ENTITIES_CACHE = os.path.expanduser('~/.config/samvivan-macropad/ha_entities_cache.json')
 
-# Timeout requests (connect, read) — singkat supaya UI tidak pernah terasa freeze.
-TIMEOUT_TEST = (2.0, 3.0)    # uji koneksi eksplisit (tombol Test)
-TIMEOUT_PING = (1.0, 2.0)    # cek latar belakang (status pill)
-TIMEOUT_SCAN = (2.0, 8.0)    # scan live paksa (tombol Refresh / Simpan)
-TIMEOUT_SCAN_BG = (1.5, 5.0)  # scan pertama saat cache masih kosong
+# Timeout requests (connect, read) — short so the UI never feels frozen.
+TIMEOUT_TEST = (2.0, 3.0)    # explicit connection test (Test button)
+TIMEOUT_PING = (1.0, 2.0)    # background check (status pill)
+TIMEOUT_SCAN = (2.0, 8.0)    # forced live scan (Refresh / Save button)
+TIMEOUT_SCAN_BG = (1.5, 5.0)  # first scan while the cache is still empty
 
-# Jeda minimal sebelum scan live ulang setelah scan sebelumnya gagal (detik).
-# Mencegah permintaan jaringan berulang yang membuat endpoint terasa lambat.
+# Minimum delay before rescanning live after a previous scan failed (seconds).
+# Prevent repeated network requests that make the endpoint feel slow.
 SCAN_RETRY_DELAY = 30.0
 
-# Batas umur hasil cek koneksi terakhir sebelum dianggap usang (detik).
+# Maximum age of the last connection check before it is considered stale (seconds).
 STATUS_TTL = 15
 
-# Domains yang benar-benar bisa dikontrol dari macropad (punya service HA).
-# Sensor / binary_sensor / device_tracker dsb. sengaja di-skip karena tidak interaktif.
+# Domains that can actually be controlled from the macropad (they have HA services).
+# Sensor / binary_sensor / device_tracker etc. are intentionally skipped as non-interactive.
 INTERACTIVE_SERVICES: Dict[str, List[str]] = {
     "light": ["toggle", "turn_on", "turn_off"],
     "switch": ["toggle", "turn_on", "turn_off"],
@@ -78,8 +100,8 @@ DOMAIN_ICONS: Dict[str, str] = {
 }
 DEFAULT_ICON = "package"
 
-# Icon bawaan Home Assistant (format "mdi:xxx") -> nama ikon internal aplikasi
-# (dipakai sebagai label ikon entitas; UI memakai ikon tema GTK bila tersedia).
+# Built-in Home Assistant icons (format "mdi:xxx") -> internal app icon names
+# (used as entity icon labels; the UI uses GTK theme icons when available).
 MDI_ICON_ALIASES: Dict[str, str] = {
     "lightbulb": "lightbulb", "lightbulb-outline": "lightbulb", "lamp": "lightbulb",
     "ceiling-light": "lightbulb", "wall-sconce": "lightbulb",
@@ -116,7 +138,7 @@ MDI_ICON_ALIASES: Dict[str, str] = {
 
 INTERACTIVE_DOMAINS = set(INTERACTIVE_SERVICES.keys())
 
-# Service paling masuk akal untuk tiap domain ketika user baru memilih entity
+# Most sensible service for each domain when the user has just picked an entity
 DEFAULT_SERVICE_OVERRIDES: Dict[str, str] = {
     "automation": "trigger",
     "button": "press",
@@ -133,7 +155,7 @@ DEFAULT_SERVICE_OVERRIDES: Dict[str, str] = {
 }
 
 def resolve_icon(raw_icon: Optional[str], domain: str) -> str:
-    """Petakan icon Home Assistant (mdi:xxx) / nama Lucide -> nama ikon Lucide."""
+    """Map a Home Assistant icon (mdi:xxx) / Lucide name -> Lucide icon name."""
     if isinstance(raw_icon, str) and raw_icon.strip():
         name = raw_icon.strip()
         if name.startswith("mdi:"):
@@ -145,7 +167,7 @@ def resolve_icon(raw_icon: Optional[str], domain: str) -> str:
 
 
 def _load_disk_cache() -> Dict[str, Any]:
-    """Baca cache hasil scan terakhir (untuk saat HA offline)."""
+    """Read the last scan cache (for when HA is offline)."""
     try:
         with open(ENTITIES_CACHE, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -157,14 +179,14 @@ def _load_disk_cache() -> Dict[str, Any]:
 
 
 def _save_disk_entities(entities: List[Dict[str, Any]], url: str) -> None:
-    """Simpan hasil scan terakhir ke disk agar tetap bisa dipilih saat HA offline."""
+    """Save the last scan to disk so it stays selectable while HA is offline."""
     try:
         os.makedirs(os.path.dirname(ENTITIES_CACHE), exist_ok=True)
         with open(ENTITIES_CACHE, 'w', encoding='utf-8') as f:
             json.dump({"saved_at": int(time.time()), "url": url,
                        "entities": entities}, f, indent=2)
     except Exception as e:
-        print(f"[HA] Gagal menulis cache entity: {e}")
+        print(f"[HA] Failed to write entity cache: {e}")
 
 
 def _clear_disk_entities() -> None:
@@ -176,7 +198,7 @@ def _clear_disk_entities() -> None:
 
 
 def decorate_entities(entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Attach daftar service, ikon & state agar siap dipakai entity picker UI."""
+    """Attach the service list, icon & state so it is ready for the UI entity picker."""
     decorated: List[Dict[str, Any]] = []
     for ent in entities:
         entity_id = ent.get("entity_id", "")
@@ -204,13 +226,19 @@ class HomeAssistantClient:
         self.token: Optional[str] = None
         self._cached_entities: List[Dict[str, Any]] = []
         self._last_check: Optional[Dict[str, Any]] = None  # {"at", "ok", "message"}
-        self._last_scan_live = False  # True bila hasil cache berasal dari scan live
+        self._last_scan_live = False  # True when the cache came from a live scan
         self._last_scan_at = 0.0
         self._last_scan_ok = False
+        self._disk_loaded = False  # entity cache is loaded lazily on first use
         self.load_config()
 
     def load_config(self):
-        """Load HA_URL and HA_TOKEN from local config or ~/.config/home-assistant/env."""
+        """Load HA_URL and HA_TOKEN from local config or ~/.config/home-assistant/env.
+
+        The (potentially large) entity cache is intentionally *not* read here:
+        it is loaded lazily by get_entities() so an idle/background app does not
+        hold hundreds of entity dicts in memory.
+        """
         # 1. Try ~/.config/samvivan-macropad/ha_config.json
         if os.path.exists(LOCAL_CONFIG):
             try:
@@ -219,12 +247,11 @@ class HomeAssistantClient:
                     self.url = data.get('url')
                     self.token = data.get('token')
                     if self.url and self.token:
-                        self._load_cached_entities()
                         return
             except Exception:
                 pass
 
-        # 2. Try ~/.config/home-assistant/env (migrasi dari setup lama)
+        # 2. Try ~/.config/home-assistant/env (migrated from the old setup)
         if os.path.exists(ENV_CONFIG):
             try:
                 with open(ENV_CONFIG, 'r', encoding='utf-8') as f:
@@ -234,13 +261,13 @@ class HomeAssistantClient:
                             self.url = line.split('=', 1)[1].strip('"\'')
                         elif line.startswith('HA_TOKEN='):
                             self.token = line.split('=', 1)[1].strip('"\'')
+
             except Exception:
                 pass
 
-        self._load_cached_entities()
-
     def _load_cached_entities(self):
-        """Ambil hasil scan terakhir dari disk, asalkan berasal dari instance HA yang sama."""
+        """Fetch the last scan from disk, as long as it came from the same HA instance."""
+        self._disk_loaded = True
         cache = _load_disk_cache()
         if cache.get("url") and cache.get("url") != (self.url or "").rstrip('/'):
             return
@@ -252,12 +279,13 @@ class HomeAssistantClient:
         """Save HA credentials."""
         self.url = url.rstrip('/')
         self.token = token.strip()
-        # URL bisa berubah -> buang cache lama supaya entity HA lama tidak tersisa.
+        # The URL may have changed -> drop the old cache so stale HA entities are not kept.
         self._cached_entities = []
         self._last_check = None
         self._last_scan_live = False
         self._last_scan_at = 0.0
         self._last_scan_ok = False
+        self._disk_loaded = True
         _clear_disk_entities()
         os.makedirs(os.path.dirname(LOCAL_CONFIG), exist_ok=True)
         try:
@@ -272,10 +300,10 @@ class HomeAssistantClient:
         return bool(self.url and self.token)
 
     def get_status(self, ping: bool = False) -> Dict[str, Any]:
-        """Status ringkas koneksi HA.
+        """Concise HA connection status.
 
-        Default (ping=False): instan, tanpa jaringan — hanya membaca hasil cek
-        terakhir yang masih disimpan. ping=True melakukan cek live (maks ~3 dtk).
+        Default (ping=False): instant, no network — only reads the last still-cached
+        check result. ping=True performs a live check (max ~3 s).
         """
         if not self.is_configured():
             self._last_check = None
@@ -283,7 +311,7 @@ class HomeAssistantClient:
                 "configured": False,
                 "url": self.url,
                 "connected": False,
-                "message": "Belum dikonfigurasi — isi URL & token Home Assistant",
+                "message": "Not configured — enter the Home Assistant URL & token",
                 "cached": True,
             }
 
@@ -299,7 +327,7 @@ class HomeAssistantClient:
                     "message": self._last_check["message"], "cached": True}
 
         return {"configured": True, "url": self.url, "connected": False,
-                "message": "Belum dicek — klik Test Koneksi untuk cek live",
+                "message": "Not checked yet — click Test Connection for a live check",
                 "cached": True}
 
     def check_connection(self, url: Optional[str] = None, token: Optional[str] = None,
@@ -309,35 +337,42 @@ class HomeAssistantClient:
         target_token = (token or self.token or "").strip()
 
         if not target_url or not target_token:
-            return False, "Home Assistant URL atau Token belum dikonfigurasi"
+            return False, "Home Assistant URL or Token not configured"
 
         try:
             headers = {"Authorization": f"Bearer {target_token}"}
-            res = requests.get(f"{target_url}/api/", headers=headers, timeout=timeout)
-            if res.status_code == 200:
-                data = res.json()
+            status, body = _http_request(
+                "GET", f"{target_url}/api/", headers=headers,
+                timeout=timeout[1])
+            if status == 200:
+                try:
+                    data = json.loads(body.decode("utf-8", "replace"))
+                except ValueError:
+                    data = {}
                 msg = data.get("message", "API running")
-                return True, f"Terhubung ke Home Assistant ({msg})"
-            elif res.status_code == 401:
-                return False, "Otentikasi gagal: Token tidak valid (401 Unauthorized)"
+                return True, f"Connected to Home Assistant ({msg})"
+            elif status == 401:
+                return False, "Authentication failed: invalid Token (401 Unauthorized)"
             else:
-                return False, f"Server merespons dengan HTTP {res.status_code}"
-        except requests.exceptions.Timeout:
-            return False, f"Koneksi timeout ke {target_url} (periksa jaringan LAN)"
+                return False, f"Server responded with HTTP {status}"
+        except (socket.timeout, TimeoutError):
+            return False, f"Connection timeout to {target_url} (check the LAN)"
         except Exception as e:
-            return False, f"Gagal menghubungi Home Assistant: {str(e)}"
+            return False, f"Failed to reach Home Assistant: {str(e)}"
 
     def get_entities(self, force_refresh: bool = False) -> List[Dict[str, Any]]:
-        """Scan semua entity interaktif (kontrol) dari Home Assistant states.
+        """Scan all interactive (controllable) entities from Home Assistant states.
 
-        Hasil scan terakhir juga disimpan ke disk sehingga daftar entity tetap
-        tersedia walau HA sedang offline. Tidak ada hardcode IP/entitas di sini.
+        The last scan is also saved to disk so the entity list stays available
+        even while HA is offline. There is no hardcoded IP/entity here.
         """
+        if not self._disk_loaded:
+            self._load_cached_entities()
         if self._cached_entities and not force_refresh:
             return self._cached_entities
 
-        # Scan live terakhir gagal -> jangan coba lagi dalam SCAN_RETRY_DELAY detik,
-        # supaya endpoint tetap instan saat HA memang sedang tidak terjangkau.
+        # The last live scan failed -> do not retry within SCAN_RETRY_DELAY seconds,
+        # so the endpoint stays instant when HA really is unreachable.
         if (not force_refresh and self._last_scan_at and not self._last_scan_ok
                 and (time.monotonic() - self._last_scan_at) < SCAN_RETRY_DELAY):
             return self._cached_entities
@@ -347,15 +382,17 @@ class HomeAssistantClient:
             self._last_scan_at = time.monotonic()
             try:
                 headers = {"Authorization": f"Bearer {self.token}"}
-                res = requests.get(f"{self.url}/api/states", headers=headers, timeout=timeout)
-                if res.status_code == 200:
-                    raw_states = res.json()
+                status, body = _http_request(
+                    "GET", f"{self.url}/api/states", headers=headers,
+                    timeout=timeout[1])
+                if status == 200:
+                    raw_states = json.loads(body.decode("utf-8", "replace"))
                     parsed = []
                     for state in raw_states:
                         entity_id = state.get("entity_id", "")
                         domain = entity_id.split(".")[0] if "." in entity_id else "unknown"
                         if domain not in INTERACTIVE_DOMAINS:
-                            continue  # skip sensor, binary_sensor, device_tracker, dsb.
+                            continue  # skip sensor, binary_sensor, device_tracker, etc.
                         attrs = state.get("attributes", {})
                         parsed.append({
                             "entity_id": entity_id,
@@ -376,15 +413,15 @@ class HomeAssistantClient:
 
             self._last_scan_ok = False
 
-        # HA tidak terjangkau / belum dikonfigurasi -> pakai hasil scan terakhir di disk
+        # HA unreachable / not configured -> use the last scan from disk
         self._last_scan_live = False
         return self._cached_entities
 
     def call_service(self, domain: str, service: str, entity_id: Optional[str] = None, data: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
         """Call a Home Assistant service natively via HTTP REST API."""
         if not self.is_configured():
-            self._notify_desktop("MacroPad / Home Assistant", "Config Home Assistant belum disetel")
-            return False, "Home Assistant belum dikonfigurasi"
+            self._notify_desktop("MacroPad / Home Assistant", "Home Assistant config not set")
+            return False, "Home Assistant not configured"
 
         payload = data or {}
         if entity_id:
@@ -397,17 +434,19 @@ class HomeAssistantClient:
         }
 
         try:
-            res = requests.post(url, headers=headers, json=payload, timeout=(2.0, 5.0))
-            if res.status_code == 200:
+            status, body = _http_request(
+                "POST", url, headers=headers,
+                body=json.dumps(payload).encode("utf-8"), timeout=5.0)
+            if status == 200:
                 target_label = entity_id or f"{domain}.{service}"
                 self._notify_desktop("MacroPad / Home Assistant", f"{domain}.{service}: {target_label}")
-                return True, f"Service {domain}.{service} berhasil dieksekusi"
+                return True, f"Service {domain}.{service} executed successfully"
             else:
-                msg = f"HTTP {res.status_code}: {res.text[:100]}"
-                self._notify_desktop("MacroPad / Home Assistant", f"Gagal ({res.status_code})")
+                msg = f"HTTP {status}: {body[:100].decode('utf-8', 'replace')}"
+                self._notify_desktop("MacroPad / Home Assistant", f"Failed ({status})")
                 return False, msg
         except Exception as e:
-            self._notify_desktop("MacroPad / Home Assistant", "Gagal menghubungi Home Assistant")
+            self._notify_desktop("MacroPad / Home Assistant", "Failed to reach Home Assistant")
             return False, f"Connection error: {str(e)}"
 
     @staticmethod

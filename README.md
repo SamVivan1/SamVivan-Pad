@@ -4,45 +4,45 @@
 [![Connectivity](https://img.shields.io/badge/Connectivity-BLE%20HID%20%7C%20USB--Serial-blue.svg)](https://github.com/)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20Ubuntu%20%7C%20Cross--Platform-E95420.svg?logo=ubuntu)](https://ubuntu.com/)
 
-**SamVivan MacroPad v2.5** adalah perangkat macropad mekanikal nirkabel 8-tombol berbasis **ESP32-C3 SuperMini** dengan konektivitas **Bluetooth Low Energy (BLE HID)** dan **USB Serial**. Dilengkapi **aplikasi desktop native Linux (GTK4 + Libadwaita)** untuk konfigurasi tombol, monitor event hardware, dan integrasi **Home Assistant** — tanpa server web, tanpa Docker.
+**SamVivan MacroPad v2.5** is an 8-key wireless mechanical macropad based on the **ESP32-C3 SuperMini** with **Bluetooth Low Energy (BLE HID)** and **USB Serial** connectivity. It is complemented by a **native Linux desktop application (GTK4 + Libadwaita)** for configuring keys, monitoring hardware events, and **Home Assistant** integration — no web server, no Docker.
 
 ---
 
-## ✨ Fitur Utama
+## ✨ Key Features
 
-- **8 Tombol Mekanikal Multi-Trigger**:
-  - **Single Click (1x)**: Eksekusi shortcut standar respons instan.
-  - **Double Click (2x)**: Deteksi klik ganda dengan umpan balik LED berkedip 2 kali.
-  - **Hold / Long Press (HOLD)**: Tahan tombol > 450ms dengan umpan balik LED berkedip 3 kali.
+- **8 Mechanical Keys with Multi-Trigger**:
+  - **Single Click (1x)**: Executes a standard shortcut with instant response.
+  - **Double Click (2x)**: Detects a double click with LED feedback blinking twice.
+  - **Hold / Long Press (HOLD)**: Press and hold a key for > 450ms with LED feedback blinking three times.
 - **Dual Layer / Mode Switcher**:
-  - **Desktop Mode**: Shortcut harian, navigasi, dan produktivitas OS (LED Status ON).
-  - **Home Assistant Mode**: Shortcut IoT dan otomasi smart home (LED Status OFF).
-- **Tombol Khusus Sistem (B1 / GPIO 20)**:
+  - **Desktop Mode**: Daily shortcuts, navigation, and OS productivity (Status LED ON).
+  - **Home Assistant Mode**: IoT shortcuts and smart home automation (Status LED OFF).
+- **Dedicated System Key (B1 / GPIO 20)**:
   - Single Click: Toggle layer (*Desktop Mode* ↔ *Home Assistant Mode*).
-  - Hold / Long Press: Mengetik passcode/string otomatis (`031004`).
-- **Aplikasi Desktop Native (GTK4 + Libadwaita)**:
-  - Tampilan visual chassis 8 tombol mekanikal interaktif dengan inspector aksi per trigger (1x / 2x / hold).
-  - **Live Hardware Event Monitor**: animasi tombol tertekan di layar secara real-time saat saklar fisik ditekan.
-  - **Console Serial**: log hardware + kirim perintah ke macropad dari dalam aplikasi.
-  - Halaman **Profil**: simpan, impor & ekspor profil pemetaan tombol (`.json`) + preset bawaan.
-  - Pill status **Serial** dan **Home Assistant** langsung di header.
-- **Dukungan Native Linux Ubuntu**:
-  - Siap dihubungkan via BLE Keyboard atau kabel USB Serial.
-  - **Aplikasi desktop native** (GTK4 + Libadwaita) — layaknya Vial / OpenRGB, bukan daemon background.
-  - Pemindai aplikasi `.desktop` Ubuntu + peluncur tombol tanpa perlu ngedit script.
-  - **Home Assistant Native**: panggil service HA (`light.toggle`, `automation.trigger`, ...)
-    langsung dari aplikasi via REST API — tanpa bash script, tanpa `curl`.
-  - Fallback ke mode webhook & bash script bila tetap dibutuhkan.
+  - Hold / Long Press: Automatically types a passcode/string (`031004`).
+- **Native Desktop Application (GTK4 + Libadwaita)**:
+  - Visual interactive 8-key mechanical chassis with a per-trigger action inspector (1x / 2x / hold).
+  - **Live Hardware Event Monitor**: on-screen key press animations in real time when the physical switch is pressed.
+  - **Serial Console**: hardware log + send commands to the macropad from within the app.
+  - **Profiles** page: save, import & export key mapping profiles (`.json`) + built-in presets.
+  - **Serial** and **Home Assistant** status pills directly in the header.
+- **Native Linux Ubuntu Support**:
+  - Ready to connect via BLE Keyboard or a USB Serial cable.
+  - **Native desktop application** (GTK4 + Libadwaita) — just like Vial / OpenRGB, not a background daemon.
+  - Ubuntu `.desktop` application scanner + button launcher without editing scripts.
+  - **Native Home Assistant**: call HA services (`light.toggle`, `automation.trigger`, ...)
+    directly from the application via the REST API — no bash script, no `curl`.
+  - Fallback to webhook & bash script modes if still needed.
 
 ---
 
-## 📌 Spesifikasi Hardware & Pinout
+## 📌 Hardware Specifications & Pinout
 
-Menggunakan mikrokontroler **ESP32-C3 SuperMini** dengan konfigurasi saklar aktif rendah (*Active-LOW / Internal Pull-Up*):
+Uses an **ESP32-C3 SuperMini** microcontroller with an active-LOW switch configuration (*Active-LOW / Internal Pull-Up*):
 
-| Komponen | Pin Fisik (GPIO) | Fungsi Bawaan | Keterangan |
+| Component | Physical Pin (GPIO) | Default Function | Description |
 | :--- | :---: | :--- | :--- |
-| **Status LED** | `GPIO 4` | Indikator Mode & Feedback Blink | ON = Desktop Mode, OFF = HA Mode |
+| **Status LED** | `GPIO 4` | Mode Indicator & Blink Feedback | ON = Desktop Mode, OFF = HA Mode |
 | **Button 1** | `GPIO 20` | Mode Switch / Passcode String | Single: Toggle Mode, Hold: String `"031004"` |
 | **Button 2** | `GPIO 9` | Macro 1 | Desktop: Ctrl+Alt+Shift + 2 / Q / A |
 | **Button 3** | `GPIO 2` | Macro 2 | Desktop: Ctrl+Alt+Shift + 3 / W / S |
@@ -52,21 +52,21 @@ Menggunakan mikrokontroler **ESP32-C3 SuperMini** dengan konfigurasi saklar akti
 | **Button 7** | `GPIO 3` | Macro 6 | Desktop: Ctrl+Alt+Shift + 7 / Y / H |
 | **Button 8** | `GPIO 0` | Macro 7 | Desktop: Ctrl+Alt+Shift + 8 / U / J |
 
-### ⏱️ Parameter Waktu (Timing Engine)
-* **Debounce Filter**: `25 ms` (Penyaring getaran mekanis saklar switch)
-* **Click Timeout**: `250 ms` (Jeda maksimal antar ketukan untuk deteksi klik ganda)
-* **Hold Timeout**: `450 ms` (Durasi penekanan untuk memicu aksi Long Press)
+### ⏱️ Timing Parameters (Timing Engine)
+* **Debounce Filter**: `25 ms` (filters mechanical switch bounce)
+* **Click Timeout**: `250 ms` (maximum interval between taps for double-click detection)
+* **Hold Timeout**: `450 ms` (press duration required to trigger the Long Press action)
 
 ---
 
-## 🗺️ Pemetaan Default (Keymap Layers)
+## 🗺️ Default Mapping (Keymap Layers)
 
-Semua shortcut bawaan dikirimkan dengan kombinasi tombol pengubah: `Ctrl + Alt + Shift + <Key>`
+All default shortcuts are sent with the modifier combination: `Ctrl + Alt + Shift + <Key>`
 
 ### 1. Desktop Mode (LED GPIO 4: ON)
-| Tombol | Single Click (1x) | Double Click (2x) | Hold / Long Press |
+| Key | Single Click (1x) | Double Click (2x) | Hold / Long Press |
 | :---: | :---: | :---: | :---: |
-| **B1** | *Toggle ke HA Mode* | *None* | Teks: `"031004"` |
+| **B1** | *Toggle to HA Mode* | *None* | Text: `"031004"` |
 | **B2** | `Key 2` | `Key Q` | `Key A` |
 | **B3** | `Key 3` | `Key W` | `Key S` |
 | **B4** | `Key 4` | `Key E` | `Key D` |
@@ -76,9 +76,9 @@ Semua shortcut bawaan dikirimkan dengan kombinasi tombol pengubah: `Ctrl + Alt +
 | **B8** | `Key 8` | `Key U` | `Key J` |
 
 ### 2. Home Assistant Mode (LED GPIO 4: OFF)
-| Tombol | Single Click (1x) | Double Click (2x) | Hold / Long Press |
+| Key | Single Click (1x) | Double Click (2x) | Hold / Long Press |
 | :---: | :---: | :---: | :---: |
-| **B1** | *Toggle ke Desktop Mode* | *None* | Teks: `"031004"` |
+| **B1** | *Toggle to Desktop Mode* | *None* | Text: `"031004"` |
 | **B2** | `Key F2` | `Key Z` | `Key 9` |
 | **B3** | `Key F3` | `Key X` | `Key 0` |
 | **B4** | `Key F4` | `Key C` | `Key I` |
@@ -89,76 +89,76 @@ Semua shortcut bawaan dikirimkan dengan kombinasi tombol pengubah: `Ctrl + Alt +
 
 ---
 
-## 📁 Struktur Repositori
+## 📁 Repository Structure
 
 ```
 macropadv2.5/
-├── macropadv2.5.ino          # Firmware Arduino / ESP32-C3
-├── README.md                 # Dokumentasi utama repositori
-└── linux-app/                # Aplikasi desktop native GTK4 + Libadwaita
-    ├── main.py               # Entry point Adw.Application
-    ├── config.py             # Profil, preset, validasi konfigurasi
-    ├── state.py              # Bus state runtime (tanpa GTK)
-    ├── ui/                   # Halaman & dialog GTK4
-    │   ├── window.py         # Jendela utama (sidebar + stack halaman)
-    │   ├── keys_page.py      # Grid 8 keycap + inspector aksi
-    │   ├── action_editor.py  # Editor aksi per trigger (1x / 2x / hold)
-    │   ├── console_page.py   # Console serial (log + kirim perintah)
-    │   ├── settings_page.py  # Halaman Profil & Pengaturan
-    │   ├── ha_dialogs.py     # Dialog koneksi HA & Entity Picker
-    │   ├── app_picker.py     # Pemilih aplikasi (.desktop)
-    │   └── css.py            # Gaya kustom mengikuti HIG GNOME
-    ├── app_scanner.py        # Pemindai aplikasi terpasang (.desktop)
-    ├── system_actions.py     # Eksekusi aksi lokal (shortcut, audio, teks, ...)
-    ├── home_assistant.py     # Klien REST Home Assistant (dipanggil langsung)
-    ├── serial_listener.py    # Listener serial + dispatcher aksi
-    ├── samvivan-macropad.svg # Ikon vector resmi aplikasi
-    ├── samvivan-macropad.desktop # Entry menu aplikasi Ubuntu
-    ├── run.sh                # Launcher script aplikasi
-    ├── install.sh            # Pasang ke Menu Aplikasi Ubuntu (Super Key)
-    ├── uninstall.sh          # Hapus aplikasi & shortcut secara bersih
-    └── README.md             # Dokumentasi aplikasi native
+├── macropadv2.5.ino          # Arduino / ESP32-C3 firmware
+├── README.md                 # Main repository documentation
+└── linux-app/                # Native desktop application (GTK4 + Libadwaita)
+    ├── main.py               # Adw.Application entry point
+    ├── config.py             # Profiles, presets, configuration validation
+    ├── state.py              # Runtime state bus (no GTK)
+    ├── ui/                   # GTK4 pages & dialogs
+    │   ├── window.py         # Main window (sidebar + page stack)
+    │   ├── keys_page.py      # 8-keycap grid + action inspector
+    │   ├── action_editor.py  # Per-trigger action editor (1x / 2x / hold)
+    │   ├── console_page.py   # Serial console (log + send commands)
+    │   ├── settings_page.py  # Profiles & Settings page
+    │   ├── ha_dialogs.py     # HA connection dialog & Entity Picker
+    │   ├── app_picker.py     # Application picker (.desktop)
+    │   └── css.py            # Custom styles following the GNOME HIG
+    ├── app_scanner.py        # Installed application scanner (.desktop)
+    ├── system_actions.py     # Local action execution (shortcuts, audio, text, ...)
+    ├── home_assistant.py     # Home Assistant REST client (called directly)
+    ├── serial_listener.py    # Serial listener + action dispatcher
+    ├── samvivan-macropad.svg # Official application vector icon
+    ├── samvivan-macropad.desktop # Ubuntu application menu entry
+    ├── run.sh                # Application launcher script
+    ├── install.sh            # Install into the Ubuntu Application Menu (Super Key)
+    ├── uninstall.sh          # Cleanly remove the application & shortcut
+    └── README.md             # Native application documentation
 ```
 
-### 💻 Menjalankan sebagai Aplikasi Native Linux (Direkomendasikan)
-Aplikasi ini berjalan layaknya software peripheral modern (**Vial, Piper, Razer Synapse, OpenRGB**), bukan daemon yang membebani background:
-1. **Pasang ke Menu Aplikasi Ubuntu**:
+### 💻 Running as a Native Linux Application (Recommended)
+This application runs like modern peripheral software (**Vial, Piper, Razer Synapse, OpenRGB**), not a daemon that burdens the background:
+1. **Install into the Ubuntu Application Menu**:
    ```bash
    cd linux-app
    ./install.sh
    ```
-2. Tekan tombol **Super / Windows** di keyboard, ketik **`SamVivan MacroPad`**, dan klik aplikasinya! Jendela native GTK4 akan terbuka.
-3. Atau jalankan langsung dari terminal:
+2. Press the **Super / Windows** key on the keyboard, type **`SamVivan MacroPad`**, and click the application! A native GTK4 window will open.
+3. Or run it directly from the terminal:
    ```bash
    cd linux-app
    ./run.sh
    ```
-4. Saat jendela ditutup, aplikasi akan berhenti secara bersih tanpa meninggalkan proses background.
+4. When the window is closed, the application stops cleanly without leaving a background process.
 
-Halaman aplikasi:
-- **Tombol** — grid 8 keycap, switch mode Desktop / Home Assistant, dan inspector aksi per trigger.
-- **Console Serial** — log hardware real-time + input kirim perintah ke macropad.
-- **Profil** — simpan / impor / ekspor profil JSON + preset bawaan.
-- **Pengaturan** — parameter timing (debounce / click / hold), koneksi Home Assistant, dan pindai ulang aplikasi.
+Application pages:
+- **Buttons** — 8-keycap grid, Desktop / Home Assistant mode switch, and per-trigger action inspector.
+- **Serial Console** — real-time hardware log + command input to send commands to the macropad.
+- **Profiles** — save / import / export JSON profiles + built-in presets.
+- **Settings** — timing parameters (debounce / click / hold), Home Assistant connection, and application rescan.
 
-### 🏠 Koneksi Home Assistant Native (Scriptless)
-Semua aksi tombol bertipe **Home Assistant (Native)** dieksekusi langsung oleh aplikasi
-ke `POST /api/services/<domain>/<service>` — menggantikan script `ha-*.sh` lama.
-Tidak ada IP, token, atau entity yang di-hardcode di source:
-1. Buka aplikasi → klik pill **`HA: ...`** di header (atau **Koneksi** di Key Inspector).
-   Dialog langsung terbuka — status dibaca dari cache, cek live jalan di latar belakang.
-2. Isi URL HA + **Long-Lived Access Token** (HA → Profile → Security → Long-Lived Access Tokens).
-3. **Test Koneksi** → **Simpan Koneksi** → sistem otomatis memindai semua entity interaktif
-   dan membuka **Entity Picker** (pilih HA, lalu pilih entity → tempel ke tombol).
-4. Pilih service (`toggle`, `turn_on`, `trigger`, `press`, ...), lalu **Test** untuk eksekusi.
-5. Token tersimpan di `~/.config/samvivan-macropad/ha_config.json`
-   (fallback baca: `~/.config/home-assistant/env`); hasil scan entity di-cache di
-   `~/.config/samvivan-macropad/ha_entities_cache.json` sehingga tetap tampil saat HA offline.
-6. Semua pemanggilan dilakukan langsung dari modul Python `home_assistant.py` —
-   tidak ada endpoint HTTP lokal maupun layanan tambahan yang berjalan di background.
+### 🏠 Native Home Assistant Connection (Scriptless)
+All actions of type **Home Assistant (Native)** are executed directly by the application
+to `POST /api/services/<domain>/<service>` — replacing the old `ha-*.sh` scripts.
+No IP, token, or entity is hardcoded in the source:
+1. Open the application → click the **`HA: ...`** pill in the header (or **Connection** in the Key Inspector).
+   The dialog opens immediately — status is read from cache, and the live check runs in the background.
+2. Enter the HA URL + **Long-Lived Access Token** (HA → Profile → Security → Long-Lived Access Tokens).
+3. **Test Connection** → **Save Connection** → the system automatically scans all interactive entities
+   and opens the **Entity Picker** (choose HA, then choose an entity → attach it to a key).
+4. Choose a service (`toggle`, `turn_on`, `trigger`, `press`, ...), then **Test** to execute.
+5. The token is stored in `~/.config/samvivan-macropad/ha_config.json`
+   (fallback read: `~/.config/home-assistant/env`); entity scan results are cached in
+   `~/.config/samvivan-macropad/ha_entities_cache.json` so they remain visible while HA is offline.
+6. All calls are made directly from the Python module `home_assistant.py` —
+   there is no local HTTP endpoint or additional service running in the background.
 
-### 🗑️ Cara Uninstall dari Ubuntu
-Untuk menghapus shortcut dan ikon aplikasi dari sistem Ubuntu:
+### 🗑️ How to Uninstall from Ubuntu
+To remove the application shortcut and icon from the Ubuntu system:
 ```bash
 cd linux-app
 ./uninstall.sh
@@ -166,41 +166,41 @@ cd linux-app
 
 ---
 
-## 🐧 Konfigurasi di Linux Ubuntu
+## 🐧 Configuration on Linux Ubuntu
 
-### 1. Izin Akses USB Serial
-Agar browser di Ubuntu memiliki izin membaca port serial mikrokontroler:
+### 1. USB Serial Access Permission
+So that a browser on Ubuntu has permission to read the microcontroller serial port:
 ```bash
-# Tambahkan user Anda ke group dialout
+# Add your user to the dialout group
 sudo usermod -a -G dialout $USER
 
-# Berikan izin ke port ttyUSB atau ttyACM
-sudo chmod a+rw /dev/ttyUSB0    # atau /dev/ttyACM0
+# Grant permission to the ttyUSB or ttyACM port
+sudo chmod a+rw /dev/ttyUSB0    # or /dev/ttyACM0
 ```
-*(Setelah menjalankan perintah di atas, lakukan logout lalu login kembali agar grup aktif).*
+*(After running the commands above, log out and log back in for the group to take effect).*
 
-### 2. Pairing Bluetooth BLE di Ubuntu
-1. Hidupkan Bluetooth pada PC Ubuntu Anda.
-2. Nyalakan ESP32 Macropad.
-3. Buka **Settings -> Bluetooth** di Ubuntu.
-4. Cari perangkat bernama **`SamVivan MacroPad`**, lalu klik **Connect**.
+### 2. Bluetooth BLE Pairing on Ubuntu
+1. Turn on Bluetooth on your Ubuntu PC.
+2. Power on the ESP32 Macropad.
+3. Open **Settings -> Bluetooth** on Ubuntu.
+4. Find the device named **`SamVivan MacroPad`**, then click **Connect**.
 
 ---
 
-## 🛠️ Flashing Firmware ke ESP32
+## 🛠️ Flashing Firmware to the ESP32
 
-1. Buka Arduino IDE.
-2. Tambahkan URL Board ESP32 jika belum ada:
+1. Open the Arduino IDE.
+2. Add the ESP32 Board URL if not already present:
    `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`
-3. Pilih board: **ESP32C3 Dev Module** (atau sesuai board ESP32-C3 yang Anda gunakan).
-4. Install library yang dibutuhkan:
-   - `HijelHID_BLEKeyboard` (atau `ESP32-BLE-Keyboard`)
-5. Buka file [`macropadv2.5.ino`](macropadv2.5.ino).
-6. Tancapkan kabel USB-C ke ESP32 dan klik **Upload**.
+3. Select the board: **ESP32C3 Dev Module** (or whichever ESP32-C3 board you use).
+4. Install the required library:
+   - `NimBLE-Arduino` (by h2zero) — `Preferences` is built into the ESP32 core.
+5. Open the file [`macropadv2.5.ino`](macropadv2.5.ino).
+6. Plug the USB-C cable into the ESP32 and click **Upload**.
 
 ---
 
-## 👤 Penulis & Lisensi
+## 👤 Author & License
 
-Dibuat oleh **SamVivan**.
-Proyek ini bersifat open-source di bawah lisensi MIT. Silakan fork, modifikasi, dan sesuaikan dengan setup homelab Anda!
+Created by **SamVivan**.
+This project is open-source under the MIT license. Feel free to fork, modify, and adapt it to your homelab setup!

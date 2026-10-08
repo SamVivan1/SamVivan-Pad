@@ -17,3 +17,6 @@ node_modules/
 
 # Konfigurasi lokal (berisi token / kredensial pribadi)
 *.local.json
+
+# Aset tray yang di-generate (lihat linux-app/tray-icons/gen_tray_icons.py)
+linux-app/tray-icons/out/

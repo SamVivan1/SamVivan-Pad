@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""SamVivan MacroPad - Dialog pemilih aplikasi terpasang (.desktop)."""
+"""SamVivan MacroPad - Installed application picker dialog (.desktop)."""
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Callable, Dict, List
 
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Gtk, Adw, GLib  # noqa: E402
+from gi.repository import Gtk, Adw  # noqa: E402
 
 import state
 from ui import util
@@ -15,7 +15,7 @@ from ui import util
 class AppPickerDialog(Adw.Window):
     def __init__(self, window, on_pick: Callable[[Dict[str, str]], None]) -> None:
         super().__init__(transient_for=window, modal=True,
-                         title="Pilih Aplikasi", default_width=600, default_height=560)
+                         title="Choose Application", default_width=600, default_height=560)
         self.on_pick = on_pick
         self.apps: List[Dict[str, str]] = list(state.installed_apps)
         self._filter = ""
@@ -23,7 +23,7 @@ class AppPickerDialog(Adw.Window):
         toolbar = Adw.ToolbarView()
         header = Adw.HeaderBar()
         header.set_title_widget(Adw.WindowTitle.new(
-            "Pilih Aplikasi", f"{len(self.apps)} aplikasi terpasang"))
+            "Choose Application", f"{len(self.apps)} applications installed"))
         toolbar.add_top_bar(header)
 
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -33,7 +33,7 @@ class AppPickerDialog(Adw.Window):
         content.set_margin_end(12)
 
         self.search = Gtk.SearchEntry()
-        self.search.set_placeholder_text("Cari nama aplikasi…")
+        self.search.set_placeholder_text("Search application name…")
         self.search.connect("search-changed", self._on_search)
         content.append(self.search)
 
@@ -49,7 +49,7 @@ class AppPickerDialog(Adw.Window):
 
         if not self.apps:
             content.append(util.hint(
-                "Belum ada daftar aplikasi — jalankan pindai ulang di halaman Pengaturan."))
+                "No applications yet — run a rescan on the Settings page."))
         else:
             self._populate()
 

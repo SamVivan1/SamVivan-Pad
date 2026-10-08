@@ -1,142 +1,142 @@
 # 🎛️ SamVivan MacroPad - Native Linux Desktop Application
 
-Aplikasi desktop native untuk Linux Ubuntu (seperti **Razer Synapse, Logitech G Hub, Vial, Piper, atau OpenRGB**),
-dibangun dengan **GTK4 + Libadwaita** (HIG GNOME).
+A native Linux Ubuntu desktop application (like **Razer Synapse, Logitech G Hub, Vial, Piper, or OpenRGB**),
+built with **GTK4 + Libadwaita** (GNOME HIG).
 
-Aplikasi ini **bukan daemon yang terus berjalan di background**, melainkan aplikasi desktop mandiri:
-* Muncul di **Menu Aplikasi Ubuntu** (Dash / App Launcher).
-* Membuka jendela aplikasi native GTK4 dengan akselerasi hardware.
-* Memindai aplikasi terpasang di sistem Ubuntu secara otomatis (file `.desktop`).
-* Memungkinkan konfigurasi tombol, aksi shortcut, peluncur aplikasi, dan otomasi audio.
-* Listener serial berjalan di dalam proses yang sama — eksekusi aksi langsung dari Python,
-  tanpa server HTTP lokal.
-* Saat jendela ditutup, seluruh proses aplikasi berhenti dengan bersih.
+This application is **not a daemon that keeps running in the background** — it is a standalone desktop app:
+* Appears in the **Ubuntu Application Menu** (Dash / App Launcher).
+* Opens a native GTK4 window with hardware acceleration.
+* Automatically scans the applications installed on the Ubuntu system (`.desktop` files).
+* Lets you configure keys, shortcut actions, application launchers, and audio automation.
+* The serial listener runs inside the same process — actions are executed directly from Python,
+  with no local HTTP server.
+* When the window is closed, the entire application process shuts down cleanly.
 
 ---
 
-## 📖 Halaman Aplikasi
+## 📖 Application Pages
 
-| Halaman | Isi |
+| Page | Contents |
 | :--- | :--- |
-| **Tombol** | Grid 8 keycap visual (index, GPIO, label, 3 chip trigger), switch mode *Desktop / Home Assistant*, dan inspector aksi per trigger (Single, Double, Hold). |
-| **Console Serial** | Log hardware real-time dengan pewarnaan + input untuk mengirim perintah ke macropad. |
-| **Profil** | Simpan (Ctrl+S), impor & ekspor profil JSON, dan terapkan preset bawaan. |
-| **Pengaturan** | Parameter timing (debounce / click / hold), koneksi Home Assistant, pindai ulang aplikasi, dan info aplikasi. |
+| **Buttons** | Visual grid of 8 keycaps (index, GPIO, label, 3 trigger chips), the *Desktop / Home Assistant* mode switch, and a per-trigger action inspector (Single, Double, Hold). |
+| **Serial Console** | Real-time hardware log with coloring + an input to send commands to the macropad. |
+| **Profiles** | Save (Ctrl+S), import & export JSON profiles, and apply built-in presets. |
+| **Settings** | Timing parameters (debounce / click / hold), Home Assistant connection, application rescan, and application info. |
 
-Juga tersedia di header: pill **Serial** (klik → buka console), pill **HA** (klik → dialog koneksi),
-dan tombol **Simpan**.
+Also available in the header: the **Serial** pill (click → open console), the **HA** pill (click → connection dialog),
+and the **Save** button.
 
 ---
 
-## 🚀 Instalasi ke Menu Aplikasi Ubuntu
+## 🚀 Installing to the Ubuntu Application Menu
 
-Untuk memasang aplikasi ke menu aplikasi Ubuntu (lengkap dengan ikon dan shortcut desktop):
+To install the application into the Ubuntu application menu (complete with icon and desktop shortcut):
 
 ```bash
 cd /home/samvivan/Arduino/samvivanpad/macropadv2.5/linux-app
 ./install.sh
 ```
 
-Setelah diinstall, Anda cukup:
-1. Tekan tombol **Super / Windows** pada keyboard Anda.
-2. Ketik **"SamVivan MacroPad"**.
-3. Klik ikon aplikasi untuk membukanya.
+Once installed, you simply:
+1. Press the **Super / Windows** key on your keyboard.
+2. Type **"SamVivan MacroPad"**.
+3. Click the application icon to open it.
 
 ---
 
-## 💻 Menjalankan Langsung via Terminal
+## 💻 Running Directly from the Terminal
 
-Anda juga dapat menjalankan aplikasi langsung dari terminal:
+You can also run the application directly from the terminal:
 ```bash
 ./run.sh
 ```
-atau:
+or:
 ```bash
 python3 main.py
 ```
 
 ---
 
-## 🏠 Integrasi Home Assistant Native (Tanpa Script)
+## 🏠 Native Home Assistant Integration (No Scripts)
 
-Aplikasi memanggil Home Assistant langsung lewat **REST API** — tidak ada lagi
-`bash script`, `curl`, atau `notify-send` wrapper seperti
+The application calls Home Assistant directly through the **REST API** — no more
+`bash script`, `curl`, or `notify-send` wrapper like
 `~/device-tweak/macropad/scripts/ha-*.sh`.
 
-Cara kerjanya:
-1. Buka aplikasi, lalu klik pill **`HA: ...`** di header (atau tombol **Koneksi** pada aksi
-   *Home Assistant (Native)* di Key Inspector). Dialog terbuka **seketika** — status dibaca
-   dari cache, cek live dilakukan di latar belakang.
-2. Isi **Home Assistant URL** (`http://<ip>:8123`) dan **Long-Lived Access Token**
+How it works:
+1. Open the application, then click the **`HA: ...`** pill in the header (or the **Connection** button on a
+   *Home Assistant (Native)* action in the Key Inspector). The dialog opens **instantly** — status is read
+   from cache, and a live check runs in the background.
+2. Enter the **Home Assistant URL** (`http://<ip>:8123`) and a **Long-Lived Access Token**
    (HA → Profile → Security → Long-Lived Access Tokens → Create).
-3. Klik **Test Koneksi**, lalu **Simpan Koneksi** — sistem otomatis memindai semua entity
-   interaktif (light, switch, cover, media_player, dsb.) dari `/api/states`.
-4. **Entity Picker** terbuka: cari / filter per domain, lalu klik entity untuk dipasang
-   ke tombol yang sedang diedit.
-5. Pada aksi tombol, pilih service (`toggle`, `turn_on`, `trigger`, `press`, ...),
-   lalu klik **Test** untuk mengeksekusinya langsung.
+3. Click **Test Connection**, then **Save Connection** — the system automatically scans all interactive
+   entities (light, switch, cover, media_player, etc.) from `/api/states`.
+4. The **Entity Picker** opens: search / filter by domain, then click an entity to assign it
+   to the button currently being edited.
+5. On the button action, choose the service (`toggle`, `turn_on`, `trigger`, `press`, ...),
+   then click **Test** to execute it immediately.
 
-Detail teknis:
-- **Tanpa hardcode**: tidak ada IP, token, atau entity bawaan di kode. Semua URL/token
-  berasal dari input pengguna; daftar tombol Home Assistant mode memakai nama generik
-  (`HA Key 1` … `HA Key 7`) sampai Anda memilih entity sendiri.
-- Kredensial disimpan di `~/.config/samvivan-macropad/ha_config.json`
-  (fallback baca: `~/.config/home-assistant/env`, format `HA_URL=` / `HA_TOKEN=`).
-- Hasil scan entity di-cache di `~/.config/samvivan-macropad/ha_entities_cache.json`
-  sehingga daftar tetap tampil walau HA sedang offline (`live: false`).
-- Modul: [`home_assistant.py`](home_assistant.py) (`HomeAssistantClient`) — dipanggil
-  **langsung** dari UI dan listener; tidak ada endpoint HTTP lokal yang disiapkan.
-- Ikon domain/entity memakai ikon tema GTK/Adwaita dengan fallback otomatis
-  (UI bebas emoji).
-- Setiap eksekusi aksi HA mengirim notifikasi desktop via `notify-send`.
-- Jika HA tidak terjangkau, daftar entity jatuh ke cache terakhir di disk; scan ulang
-  otomatis ditahan 30 detik supaya respons UI tetap instan.
-
----
-
-## 🔌 Console Serial
-
-* Log masuk otomatis dari listener (`[HARDWARE]`, `[ACTION]`, `[TX]`, error).
-* Klik pill **Serial** di header untuk menuju console.
-* Ketik perintah (mis. `CMD:PING`) lalu **Enter / Kirim** untuk mengirimkannya
-  ke macropad melalui port yang sedang terbuka.
-* Port dicari otomatis di `/dev/ttyACM*` dan `/dev/ttyUSB*` (115200 Baud),
-  auto-reconnect bila kabel dicabut.
+Technical details:
+- **No hardcoding**: there are no built-in IPs, tokens, or entities in the code. All URLs/tokens
+  come from user input; the Home Assistant mode button list uses generic names
+  (`HA Key 1` … `HA Key 7`) until you pick your own entity.
+- Credentials are stored in `~/.config/samvivan-macropad/ha_config.json`
+  (fallback read: `~/.config/home-assistant/env`, format `HA_URL=` / `HA_TOKEN=`).
+- Entity scan results are cached in `~/.config/samvivan-macropad/ha_entities_cache.json`
+  so the list stays available even while HA is offline (`live: false`).
+- Module: [`home_assistant.py`](home_assistant.py) (`HomeAssistantClient`) — called
+  **directly** from the UI and listener; no local HTTP endpoint is set up.
+- Domain/entity icons use GTK/Adwaita theme icons with automatic fallback
+  (the UI is emoji-free).
+- Every HA action execution sends a desktop notification via `notify-send`.
+- If HA is unreachable, the entity list falls back to the last on-disk cache; rescans
+  are held back for 30 seconds so UI responses stay instant.
 
 ---
 
+## 🔌 Serial Console
 
-## ⌨️ Simulasi Shortcut & Teks (Injeksi Keyboard)
+* Logs flow in automatically from the listener (`[HARDWARE]`, `[ACTION]`, `[TX]`, errors).
+* Click the **Serial** pill in the header to go to the console.
+* Type a command (e.g. `CMD:PING`) then press **Enter / Send** to send it
+  to the macropad through the currently open port.
+* Ports are discovered automatically in `/dev/ttyACM*` and `/dev/ttyUSB*` (115200 baud),
+  with auto-reconnect if the cable is unplugged.
 
-Aksi `Shortcut` dan `Ketik Teks` membutuhkan alat simulasi keyboard untuk mengirim input ke jendela aktif.
-Karena GNOME Wayland membatasi injeksi input, aplikasi menggunakan urutan prioritas otomatis:
+---
 
-1. `wtype` (direkomendasikan Wayland modern, berbasis wlroots)
-2. `ydotool` (uinput, bekerja di sebagian besar session Wayland/GNOME — membutuhkan daemon)
-3. `xdotool` (X11 saja)
 
-### Instalasi (Ubuntu)
+## ⌨️ Shortcut & Text Simulation (Keyboard Injection)
+
+The `Shortcut` and `Text` actions require a keyboard simulation tool to send input to the active window.
+Because GNOME Wayland restricts input injection, the application uses the following automatic priority order:
+
+1. `wtype` (recommended on modern Wayland, wlroots-based)
+2. `ydotool` (uinput, works in most Wayland/GNOME sessions — requires a daemon)
+3. `xdotool` (X11 only)
+
+### Installation (Ubuntu)
 
 ```bash
-# Opsi A – wtype
+# Option A – wtype
 sudo apt install wtype
 
-# Opsi B – ydotool (rekomendasi GNOME Wayland 44+)
+# Option B – ydotool (recommended on GNOME Wayland 44+)
 sudo apt install ydotool
-# Jalankan daemon uinput
+# Run the uinput daemon
 systemctl --user enable --now ydotool
-# atau: sudo ydotoold &
+# or: sudo ydotoold &
 
-# Opsi C – xdotool (hanya untuk X11 / XWayland)
+# Option C – xdotool (X11 / XWayland only)
 sudo apt install xdotool
 ```
 
-**Catatan ydotool**: beberapa versi membutuhkan akses uinput; pastikan `ydotoold` berjalan agar shortcut/ketik teks bisa bekerja.
+**ydotool note**: some versions require uinput access; make sure `ydotoold` is running so shortcuts/typing work.
 
 
-## 🗑️ Cara Uninstall
+## 🗑️ Uninstalling
 
-Untuk menghapus aplikasi dari menu aplikasi Ubuntu dan membersihkan shortcut serta ikon:
+To remove the application from the Ubuntu application menu and clean up shortcuts and icons:
 
 ```bash
 cd /home/samvivan/Arduino/samvivanpad/macropadv2.5/linux-app

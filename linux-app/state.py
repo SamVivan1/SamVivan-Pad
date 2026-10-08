@@ -1,25 +1,37 @@
 #!/usr/bin/env python3
 """
-SamVivan MacroPad - State runtime aplikasi (tanpa dependensi GTK).
+SamVivan MacroPad - Application runtime state (no GTK dependency).
 
-Semua UI berlangganan perubahan lewat subscribe(); modul ini tidak mengimpor
-gi/Gtk agar bisa dipakai dari mana pun (termasuk unit test).
+All UI subscribes to changes via subscribe(); this module does not import
+gi/Gtk so it can be used from anywhere (including unit tests).
 """
 
 from typing import Any, Callable, Dict, List, Optional
 
 import copy
+import threading
 
 import config as config_module
+
+# Thread that owns the GTK main loop (captured at import time). Emits coming
+# from worker threads (e.g. the BLE bridge) are marshalled back onto it.
+_MAIN_THREAD = threading.get_ident()
 
 # ---------------------------------------------------------------------------
 # Data
 # ---------------------------------------------------------------------------
 cfg: Dict[str, Any] = config_module.load_config()
+# Snapshot of the config exactly as it was last loaded/saved. The "dirty" flag
+# is derived by comparing the working config against this baseline, so undoing
+# a change (or re-selecting the same value) clears it automatically.
+_saved_cfg: Dict[str, Any] = copy.deepcopy(cfg)
 mode_index: int = 0          # 0 = Desktop, 1 = Home Assistant
-selected_index: int = 0      # tombol B1..B8 yang sedang diedit (0-7)
-dirty: bool = False          # ada perubahan belum disimpan
+selected_index: int = 0      # button B1..B8 currently being edited (0-7)
+dirty: bool = False          # there are unsaved changes
 active_preset: Optional[str] = cfg.get("activePreset")
+# Ignore a stale active preset whose file no longer exists.
+if active_preset and active_preset not in config_module.list_presets():
+    active_preset = None
 
 installed_apps: List[Dict[str, str]] = []
 system_presets: List[Dict[str, Any]] = []
@@ -31,25 +43,50 @@ ha_message: str = ""
 serial_port: Optional[str] = None
 serial_connected: bool = False
 
-listener: Any = None         # SerialDaemonListener (diisi main.py)
+ble_connected: bool = False
+ble_message: str = ""
+
+listener: Any = None         # SerialDaemonListener (set by main.py)
 
 _subscribers: List[Callable[..., None]] = []
 
 
 # ---------------------------------------------------------------------------
-# Bus sederhana
+# Simple bus
 # ---------------------------------------------------------------------------
 def subscribe(callback: Callable[..., None]) -> Callable[..., None]:
     _subscribers.append(callback)
     return callback
 
 
+def unsubscribe(callback: Callable[..., None]) -> None:
+    """Remove a listener registered with subscribe() (e.g. a closed dialog)."""
+    try:
+        _subscribers.remove(callback)
+    except ValueError:
+        pass
+
+
 def emit(event: str, **data: Any) -> None:
+    if threading.get_ident() == _MAIN_THREAD:
+        _dispatch(event, data)
+        return
+
+    # Called from a worker thread (e.g. the BLE bridge): GTK must only be
+    # touched on the main thread, so re-enter the loop before notifying UI.
+    try:
+        from gi.repository import GLib  # noqa: PLC0415
+        GLib.idle_add(_dispatch, event, data)
+    except Exception:  # noqa: BLE001
+        _dispatch(event, data)
+
+
+def _dispatch(event: str, data: Dict[str, Any]) -> None:
     for callback in list(_subscribers):
         try:
             callback(event, **data)
-        except Exception as exc:  # UI tidak boleh mematikan listener
-            print(f"[STATE] subscriber {callback} gagal: {exc}")
+        except Exception as exc:  # the UI must never take down the listener
+            print(f"[STATE] subscriber {callback} failed: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -64,22 +101,55 @@ def current_button() -> Dict[str, Any]:
 
 
 def mark_dirty() -> None:
+    """Re-evaluate whether the working config differs from the saved baseline."""
+    _sync_dirty()
+
+
+# Runtime metadata that is toggled by navigation/preset bookkeeping rather than
+# by editing. On its own it must not make the configuration look "modified".
+_NON_EDIT_KEYS = ("activeModeIndex", "activePreset")
+
+
+def _config_signature(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalized view of the config used to detect real user edits."""
+    return {key: value for key, value in config.items()
+            if key not in _NON_EDIT_KEYS}
+
+
+def has_changes() -> bool:
+    """True when the working config differs from the last saved/loaded one."""
+    return _config_signature(cfg) != _config_signature(_saved_cfg)
+
+
+def _sync_dirty() -> bool:
+    """Recompute the dirty flag; emit dirty-changed only when it flips."""
     global dirty
-    dirty = True
-    emit("dirty-changed", dirty=dirty)
+    new_dirty = has_changes()
+    if new_dirty != dirty:
+        dirty = new_dirty
+        emit("dirty-changed", dirty=dirty)
+        return True
+    return False
+
+
+def _mark_saved() -> None:
+    """Remember the current config as the new saved baseline."""
+    global _saved_cfg
+    _saved_cfg = copy.deepcopy(cfg)
+    _sync_dirty()
 
 
 def set_config(new_config: Dict[str, Any], source: str = "editor") -> None:
-    """Ganti seluruh konfigurasi (import/preset/reset) lalu terapkan."""
-    global cfg, dirty
+    """Replace the entire configuration (import/preset/reset) and apply it."""
+    global cfg
     cfg = new_config
-    dirty = True
     if listener is not None:
         try:
             listener.config = cfg
         except Exception as exc:
-            print(f"[STATE] gagal menerapkan config ke listener: {exc}")
+            print(f"[STATE] failed to apply config to listener: {exc}")
     emit("config-replaced", source=source)
+    _sync_dirty()
 
 
 def set_label(text: str) -> None:
@@ -89,7 +159,7 @@ def set_label(text: str) -> None:
 
 
 def set_action(trigger: str, index: int, action: Dict[str, Any]) -> None:
-    """Ganti satu aksi pada posisi `index` di slot trigger (diposisi lama bila kosong)."""
+    """Replace the action at position `index` in the trigger slot (appended at the old position if empty)."""
     actions = get_actions(trigger)
     if index < len(actions):
         actions[index] = action
@@ -101,7 +171,7 @@ def set_action(trigger: str, index: int, action: Dict[str, Any]) -> None:
 
 
 def add_action(trigger: str, action: Optional[Dict[str, Any]] = None) -> None:
-    """Tambahkan aksi baru ke slot trigger (default: 'none', bisa diubah via editor)."""
+    """Add a new action to the trigger slot (default: 'none', editable in the editor)."""
     actions = get_actions(trigger)
     actions.append(action if isinstance(action, dict)
                    else config_module.default_action("none"))
@@ -111,7 +181,7 @@ def add_action(trigger: str, action: Optional[Dict[str, Any]] = None) -> None:
 
 
 def remove_action(trigger: str, index: int) -> None:
-    """Hapus aksi dari slot trigger; pastikan selalu ada minimal satu slot."""
+    """Remove an action from the trigger slot; ensure at least one slot always exists."""
     actions = get_actions(trigger)
     if index < len(actions):
         del actions[index]
@@ -123,7 +193,7 @@ def remove_action(trigger: str, index: int) -> None:
 
 
 def get_actions(trigger: str) -> List[Dict[str, Any]]:
-    """Daftar aksi pada slot trigger (dict lama dinormalisasi jadi list)."""
+    """List of actions in the trigger slot (legacy dicts normalized to a list)."""
     return config_module.actions_list(current_button().get(trigger))
 
 
@@ -151,16 +221,15 @@ def select_button(index: int) -> None:
 
 
 def save() -> bool:
-    """Simpan ke disk dan aktifkan listener (jalur eksekusi aksi)."""
-    global dirty
+    """Save to disk and activate the listener (action execution path)."""
     ok = config_module.save_config(cfg)
     if ok:
-        dirty = False
+        _mark_saved()
         if listener is not None:
             try:
                 listener.config = cfg
             except Exception as exc:
-                print(f"[STATE] gagal sinkron ke listener: {exc}")
+                print(f"[STATE] failed to sync to listener: {exc}")
         emit("config-saved", ok=True)
     else:
         emit("config-saved", ok=False)
@@ -168,17 +237,18 @@ def save() -> bool:
 
 
 def save_preset(name: str, overwrite: bool = False) -> bool:
-    """Simpan konfigurasi sebagai preset pengguna.
+    """Save the configuration as a user preset.
 
-    overwrite=True memakai nama preset aktif (name diabaikan).
-    Berkebalikan dengan save(), di sini juga terbentuk snapshot preset baru.
+    overwrite=True replaces an existing preset: if ``name`` is given it targets
+    that preset, otherwise the currently active preset is used.
+    Otherwise ``name`` is slugified and a new preset is created.
     """
-    global dirty, active_preset
+    global active_preset
     if overwrite:
-        if not active_preset:
+        preset_name = config_module.preset_slug(name) if name else active_preset
+        if not preset_name:
             emit("config-saved", ok=False)
             return False
-        preset_name = active_preset
     else:
         preset_name = config_module.preset_slug(name)
     snapshot = copy.deepcopy(cfg)
@@ -188,12 +258,12 @@ def save_preset(name: str, overwrite: bool = False) -> bool:
         active_preset = preset_name
         cfg["activePreset"] = preset_name
         config_module.save_config(cfg)
-        dirty = False
+        _mark_saved()
         if listener is not None:
             try:
                 listener.config = cfg
             except Exception as exc:
-                print(f"[STATE] gagal sinkron ke listener: {exc}")
+                print(f"[STATE] failed to sync to listener: {exc}")
         emit("config-saved", ok=True, preset=preset_name)
     else:
         emit("config-saved", ok=False)
@@ -201,26 +271,38 @@ def save_preset(name: str, overwrite: bool = False) -> bool:
 
 
 def apply_user_preset(name: str) -> bool:
-    """Muat preset pengguna ke editor (menandai konfigurasi berubah)."""
+    """Load a user preset into the editor (marks the configuration as changed)."""
     global active_preset
     data = config_module.load_preset(name)
     if data is None:
         return False
+    # Set the active flag *before* notifying listeners, so the UI rebuilds its
+    # preset list with the correct "active" indicator.
+    active_preset = name
     data["activePreset"] = name
     set_config(data, source="preset")
-    active_preset = name
     return True
 
 
 def delete_user_preset(name: str) -> bool:
-    """Hapus preset pengguna (bila aktif, lepaskan status aktif)."""
+    """Delete a user preset (clears the active flag if it was active)."""
     global active_preset
+    if name not in config_module.list_presets():
+        return False
     ok = config_module.delete_preset(name)
-    if ok and active_preset == name:
+    if not ok:
+        return False
+    if active_preset == name:
         active_preset = None
         cfg.pop("activePreset", None)
-        config_module.save_config(cfg)
-    return ok
+        # Persist the metadata change, but never clobber unsaved edits.
+        if not dirty:
+            config_module.save_config(cfg)
+            _mark_saved()
+    # Always notify so the UI rebuilds its preset list (and drops the row).
+    emit("presets-changed", name=name)
+    _sync_dirty()
+    return True
 
 
 def set_apps(apps: List[Dict[str, str]]) -> None:
@@ -250,3 +332,13 @@ def set_serial_status(connected: bool, port: Optional[str]) -> None:
     serial_connected = connected
     serial_port = port
     emit("serial-status-changed", connected=connected, port=port)
+
+
+def set_ble_status(connected: bool, message: str) -> None:
+    """Bluetooth connection status (BLE bridge). Does not emit if unchanged."""
+    global ble_connected, ble_message
+    if connected == ble_connected and message == ble_message:
+        return
+    ble_connected = connected
+    ble_message = message
+    emit("ble-status-changed", connected=connected, message=message)

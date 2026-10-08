@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Helper UI: pekerjaan latar belakang, toast, ikon domain, dialog."""
+"""UI helpers: background work, toasts, domain icons, dialogs."""
 
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Optional
 
-# Ikon simbolis Adwaita per domain Home Assistant (fallback bila tema tak punya)
+# Adwaita symbolic icons per Home Assistant domain (fallback if the theme lacks one)
 DOMAIN_ICONS = {
     "light": "display-brightness-symbolic",
     "switch": "media-playback-start-symbolic",
@@ -66,14 +66,14 @@ def action_icon(action_type: str, theme=None) -> str:
 
 def run_async(work: Callable[[], Any],
               on_done: Optional[Callable[[Any], None]] = None) -> None:
-    """Jalankan `work` di thread terpisah, hasilnya dikirim balik ke main loop."""
+    """Run `work` on a separate thread; the result is posted back to the main loop."""
     import threading
     from gi.repository import GLib
 
     def target() -> None:
         try:
             result = work()
-        except Exception as exc:  # noqa: BLE001 - semua error diteruskan ke UI
+        except Exception as exc:  # noqa: BLE001 - all errors are forwarded to the UI
             result = (False, str(exc))
         GLib.idle_add(_finish, result)
 
@@ -82,14 +82,14 @@ def run_async(work: Callable[[], Any],
             try:
                 on_done(result)
             except Exception as exc:  # noqa: BLE001
-                print(f"[UI] callback gagal: {exc}")
+                print(f"[UI] callback failed: {exc}")
         return False
 
     threading.Thread(target=target, daemon=True).start()
 
 
 def toast_result(window, result: Any, prefix: str = "") -> None:
-    """tampilkan toast dari hasil tuple (ok, pesan)."""
+    """Show a toast from an (ok, message) tuple result."""
     if isinstance(result, tuple) and len(result) == 2:
         ok, message = result
     else:

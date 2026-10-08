@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""SamVivan MacroPad - Halaman console serial (log hardware + kirim perintah)."""
+"""SamVivan MacroPad - Serial console page (hardware log + command input)."""
 
 from typing import Optional
 
 import gi
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk, GLib, Pango  # noqa: E402
+from gi.repository import Gtk, GLib  # noqa: E402
 
 import state
 from ui import util
@@ -19,10 +19,10 @@ class ConsolePage(Gtk.Box):
         self._line_count = 0
 
         top = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.status_label = util.label("Serial: memeriksa…", css=["mp-hint"])
+        self.status_label = util.label("Serial: checking…", css=["mp-hint"])
         self.status_label.set_hexpand(True)
         top.append(self.status_label)
-        top.append(util.button("Bersihkan", "edit-clear-symbolic",
+        top.append(util.button("Clear", "edit-clear-symbolic",
                                on_clicked=self._on_clear))
         self.append(top)
 
@@ -43,18 +43,18 @@ class ConsolePage(Gtk.Box):
         self.append(scroll)
 
         bottom = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.entry = Gtk.Entry(placeholder_text="Kirim perintah ke macropad (mis. CMD:PING)…")
+        self.entry = Gtk.Entry(placeholder_text="Send a command to the macropad (e.g. CMD:PING)…")
         self.entry.set_hexpand(True)
         self.entry.connect("activate", self._on_send)
         bottom.append(self.entry)
-        bottom.append(util.button("Kirim", "mail-send-symbolic",
+        bottom.append(util.button("Send", "mail-send-symbolic",
                                   css=["suggested-action"],
                                   on_clicked=self._on_send))
         self.append(bottom)
 
         state.subscribe(self._on_state_event)
         self._sync_status()
-        self._append_line("[SYSTEM] Console serial siap — log hardware muncul di sini.", "system")
+        self._append_line("[SYSTEM] Serial console ready — hardware logs appear here.", "system")
 
     # ------------------------------------------------------------------
     def _install_tags(self, buffer_) -> None:
@@ -76,7 +76,7 @@ class ConsolePage(Gtk.Box):
 
     def _classify(self, line: str) -> str:
         upper = line.upper()
-        if "[ERROR" in upper or " FAIL]" in upper or "GAGAL" in upper:
+        if "[ERROR" in upper or " FAIL]" in upper:
             return "error"
         if "[ACTION]" in upper:
             return "action"
@@ -88,7 +88,6 @@ class ConsolePage(Gtk.Box):
         buffer_ = self.view.get_buffer()
         kind = kind or self._classify(text)
         end = buffer_.get_end_iter()
-        tags = getattr(self, "_tags", {})
 
         stamp = GLib.DateTime.new_now_local().format("%H:%M:%S")
         buffer_.insert_with_tags_by_name(end, f"[{stamp}] ", "time")
@@ -103,7 +102,6 @@ class ConsolePage(Gtk.Box):
     @staticmethod
     def _trim(buffer_) -> None:
         start = buffer_.get_start_iter()
-        limit = buffer_.get_iter_at_line_offset(0, 0)
         end = buffer_.get_iter_at_line(200)
         buffer_.delete(start, end)
 
@@ -122,20 +120,20 @@ class ConsolePage(Gtk.Box):
             try:
                 ok = bool(listener.send_command(text))
             except Exception as exc:  # noqa: BLE001
-                self.window.show_toast(f"Gagal mengirim: {exc}", "error")
+                self.window.show_toast(f"Failed to send: {exc}", "error")
         if ok:
             self.entry.set_text("")
             self._append_line(f"> {text}", "tx")
         else:
-            self.window.show_toast("Port serial belum terbuka — colok macropad dulu.", "error")
+            self.window.show_toast("Serial port not open — connect the macropad first.", "error")
 
     # ------------------------------------------------------------------
     def _sync_status(self) -> None:
         if state.serial_connected:
             self.status_label.set_text(
-                f"Serial: terhubung di {state.serial_port or '?'} (115200 Baud)")
+                f"Serial: connected at {state.serial_port or '?'} (115200 baud)")
         else:
-            self.status_label.set_text("Serial: menunggu macropad tercolok…")
+            self.status_label.set_text("Serial: waiting for macropad to connect…")
 
     def _on_state_event(self, event: str, **data) -> None:
         if event == "serial-log":
@@ -144,4 +142,4 @@ class ConsolePage(Gtk.Box):
             self._sync_status()
             if data.get("connected"):
                 self._append_line(
-                    f"[HARDWARE] Terhubung di {data.get('port') or '?'}", "system")
+                    f"[HARDWARE] Connected at {data.get('port') or '?'}", "system")

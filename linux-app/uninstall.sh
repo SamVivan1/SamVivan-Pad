@@ -2,6 +2,7 @@
 set -e
 
 APPS_DIR="$HOME/.local/share/applications"
+AUTOSTART_DIR="$HOME/.config/autostart"
 ICONS_BASE="$HOME/.local/share/icons/hicolor"
 PIXMAPS_DIR="$HOME/.local/share/pixmaps"
 SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
@@ -10,23 +11,24 @@ echo "================================================================"
 echo " 🗑️  Uninstalling SamVivan MacroPad Desktop App & Components"
 echo "================================================================"
 
-# 1. Hentikan dan hapus service systemd jika masih ada
-echo "[1/4] Memeriksa dan menghentikan background service..."
+# 1. Stop and remove the systemd service if it still exists
+echo "[1/4] Checking and stopping the background service..."
 if systemctl --user is-active --quiet samvivan-macropad 2>/dev/null; then
-    echo " -> Menghentikan service samvivan-macropad..."
+    echo " -> Stopping service samvivan-macropad..."
     systemctl --user stop samvivan-macropad 2>/dev/null || true
 fi
 systemctl --user disable samvivan-macropad 2>/dev/null || true
 rm -f "$SYSTEMD_USER_DIR/samvivan-macropad.service"
 systemctl --user daemon-reload 2>/dev/null || true
-echo " -> Background service berhasil dibersihkan."
+echo " -> Background service cleaned up successfully."
 
-# 2. Hapus file desktop shortcut
-echo "[2/4] Menghapus shortcut menu aplikasi Ubuntu..."
-rm -f "$APPS_DIR/samvivan-macropad.desktop"
+# 2. Remove the desktop shortcut and autostart files
+echo "[2/4] Removing the application menu shortcut and autostart entry..."
+rm -f "$APPS_DIR/samvivan-macropad.desktop" "$APPS_DIR/com.samvivan.macropad.desktop"
+rm -f "$AUTOSTART_DIR/samvivan-macropad.desktop" "$AUTOSTART_DIR/com.samvivan.macropad.desktop"
 
-# 3. Hapus seluruh variasi ikon aplikasi
-echo "[3/4] Menghapus ikon aplikasi multi-resolusi..."
+# 3. Remove all application icon variations
+echo "[3/4] Removing multi-resolution application icons..."
 for s in 48 64 128 256 512; do
     rm -f "$ICONS_BASE/${s}x${s}/apps/samvivan-macropad.png"
 done
@@ -34,8 +36,8 @@ rm -f "$ICONS_BASE/scalable/apps/samvivan-macropad.svg"
 rm -f "$PIXMAPS_DIR/samvivan-macropad.png"
 rm -f "$PIXMAPS_DIR/samvivan-macropad.svg"
 
-# 4. Perbarui cache ikon & desktop
-echo "[4/4] Memperbarui cache aplikasi & ikon..."
+# 4. Refresh the icon & desktop cache
+echo "[4/4] Refreshing the application & icon cache..."
 if command -v gtk-update-icon-cache &>/dev/null; then
     gtk-update-icon-cache -f -t "$ICONS_BASE" 2>/dev/null || true
 fi
@@ -44,11 +46,11 @@ if command -v update-desktop-database &>/dev/null; then
 fi
 
 echo "================================================================"
-echo " ✅ SUKSES! SamVivan MacroPad telah dihapus bersih dari sistem Ubuntu."
+echo " ✅ SUCCESS! SamVivan MacroPad has been cleanly removed from the Ubuntu system."
 echo ""
-echo " Catatan: Berkas profil & konfigurasi tombol Anda di:"
+echo " Note: Your profile & key configuration files at:"
 echo "   $HOME/.config/samvivan-macropad/"
-echo " masih dipertahankan jika Anda ingin menggunakannya lagi nanti."
-echo " Jika ingin menghapus seluruhnya termasuk konfigurasi, jalankan:"
+echo " are kept in case you want to use them again later."
+echo " To remove everything including the configuration, run:"
 echo "   rm -rf $HOME/.config/samvivan-macropad"
 echo "================================================================"

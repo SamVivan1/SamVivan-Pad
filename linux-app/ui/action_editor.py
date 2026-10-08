@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-SamVivan MacroPad - Editor aksi per trigger (Single / Double / Hold).
+SamVivan MacroPad - Action editor per trigger (Single / Double / Hold).
 
-Satu trigger bisa memuat banyak aksi. `ActionEditor` menampung daftar kartu
-`_ActionCard` (satu per aksi) dengan tombol "+" untuk menambah dan "×" untuk
-menghapus. Semua perubahan langsung menulis ke state dan memancarkan event.
+Each trigger can hold multiple actions. `ActionEditor` hosts a list of
+`_ActionCard` widgets (one per action) with a "+" button to add and an "×"
+button to remove. Every change writes straight to state and emits an event.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import gi
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk, GLib, Pango  # noqa: E402
+from gi.repository import Gtk, Pango  # noqa: E402
 
 import config as config_module
 import state
@@ -25,7 +25,7 @@ def _copy_action(action: Dict[str, Any]) -> Dict[str, Any]:
 
 
 class ActionEditor(Gtk.Box):
-    """Editor satu trigger: daftar aksi + tombol tambah."""
+    """Editor for a single trigger: action list + add button."""
 
     def __init__(self, window, trigger: str, trigger_label: str) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -38,7 +38,7 @@ class ActionEditor(Gtk.Box):
         title.set_hexpand(True)
         head.append(title)
 
-        test_all = util.button("Test Semua", "media-playback-start-symbolic",
+        test_all = util.button("Test All", "media-playback-start-symbolic",
                                ["suggested-action", "flat"],
                                self._test_all)
         test_all.set_valign(Gtk.Align.CENTER)
@@ -46,7 +46,7 @@ class ActionEditor(Gtk.Box):
 
         add_button = Gtk.Button(icon_name="list-add-symbolic")
         add_button.set_css_classes(["flat"])
-        add_button.set_tooltip_text("Tambah aksi")
+        add_button.set_tooltip_text("Add action")
         add_button.set_valign(Gtk.Align.CENTER)
         add_button.connect("clicked", self._add_action)
         head.append(add_button)
@@ -88,13 +88,13 @@ class ActionEditor(Gtk.Box):
         self.refresh()
 
     # ------------------------------------------------------------------
-    # Test seluruh aksi pada trigger (thread, hasil -> toast)
+    # Test every action on the trigger (threaded, result -> toast)
     # ------------------------------------------------------------------
     def _test_all(self, _button) -> None:
         actions = [a for a in self.actions()
                    if a.get("type", "none") != "none"]
         if not actions:
-            self.window.show_toast("Tidak ada aksi pada trigger ini", "info")
+            self.window.show_toast("No actions on this trigger", "info")
             return
 
         def work():
@@ -114,7 +114,7 @@ class ActionEditor(Gtk.Box):
 
 
 class _ActionCard(Gtk.Box):
-    """Satu kartu: satu aksi pada satu trigger."""
+    """A single card: one action on one trigger."""
 
     def __init__(self, editor: ActionEditor, index: int,
                  action: Dict[str, Any]) -> None:
@@ -143,7 +143,7 @@ class _ActionCard(Gtk.Box):
 
         remove_button = Gtk.Button(icon_name="user-trash-symbolic")
         remove_button.set_css_classes(["flat"])
-        remove_button.set_tooltip_text("Hapus aksi ini")
+        remove_button.set_tooltip_text("Remove this action")
         remove_button.set_valign(Gtk.Align.CENTER)
         remove_button.connect("clicked",
                               lambda _b: self.editor.remove_action(self.index))
@@ -189,7 +189,7 @@ class _ActionCard(Gtk.Box):
             self.content.append(widget)
 
     # ------------------------------------------------------------------
-    # Test aksi (selalu di thread, hasil -> toast)
+    # Test action (always threaded, result -> toast)
     # ------------------------------------------------------------------
     def _test_action(self, _btn=None) -> None:
         action = _copy_action(self.action)
@@ -204,16 +204,16 @@ class _ActionCard(Gtk.Box):
                            on_clicked=self._test_action)
 
     # ------------------------------------------------------------------
-    # Builders per tipe aksi
+    # Builders per action type
     # ------------------------------------------------------------------
     def _build_none(self, _action) -> Gtk.Widget:
-        return util.hint("Tidak ada aksi pada slot ini — pilih tipe untuk "
-                         "mengaktifkan, atau pakai tombol × untuk menghapus slot.")
+        return util.hint("No action in this slot — pick a type to enable it, "
+                         "or use the × button to remove the slot.")
 
     def _build_mode_toggle(self, _action) -> Gtk.Widget:
         return util.hint(
-            "Mengganti layer antara Desktop Mode dan Home Assistant Mode. "
-            "Layer diatur oleh firmware macropad (LED status)."
+            "Switches the layer between Desktop Mode and Home Assistant Mode. "
+            "The layer is handled by the macropad firmware (status LED)."
         )
 
     def _build_shortcut(self, action: Dict[str, Any]) -> Gtk.Widget:
@@ -301,19 +301,19 @@ class _ActionCard(Gtk.Box):
         row = util.horizontal(spacing=8)
         row.append(self._test_button())
         box.append(row)
-        box.append(util.hint("Volume memakai wpctl/pactl; pemutar musik memakai playerctl."))
+        box.append(util.hint("Volume uses wpctl/pactl; media playback uses playerctl."))
         return box
 
     def _build_launch_app(self, action: Dict[str, Any]) -> Gtk.Widget:
         box = util.vertical(spacing=8)
 
-        name = action.get("appName") or action.get("desktopId") or "Belum dipilih"
+        name = action.get("appName") or action.get("desktopId") or "Not selected"
         row = util.horizontal(spacing=8)
         label_widget = util.label(name)
         label_widget.set_hexpand(True)
         label_widget.set_ellipsize(Pango.EllipsizeMode.END)
         row.append(label_widget)
-        row.append(util.button("Pilih…", "view-more-symbolic", None,
+        row.append(util.button("Choose…", "view-more-symbolic", None,
                                self._pick_app, action))
         row.append(self._test_button())
         box.append(row)
@@ -321,7 +321,7 @@ class _ActionCard(Gtk.Box):
         if action.get("desktopId"):
             box.append(util.hint(f"Desktop entry: {action['desktopId']}"))
         else:
-            box.append(util.hint("Belum ada aplikasi dipilih."))
+            box.append(util.hint("No application selected."))
         return box
 
     def _pick_app(self, _btn, action: Dict[str, Any]) -> None:
@@ -384,7 +384,7 @@ class _ActionCard(Gtk.Box):
         row = util.horizontal(spacing=8)
         row.append(self._test_button())
         box.append(row)
-        box.append(util.hint("Dijalankan dengan /bin/bash di background."))
+        box.append(util.hint("Runs with /bin/bash in the background."))
         return box
 
     def _on_script_changed(self, buffer, action: Dict[str, Any]) -> None:
@@ -404,7 +404,7 @@ class _ActionCard(Gtk.Box):
         row = util.horizontal(spacing=8)
         row.append(self._test_button())
         box.append(row)
-        box.append(util.hint("POST JSON kosong (bisa diisi lewat payload) ke URL webhook HA."))
+        box.append(util.hint("POSTs an empty JSON body (extendable via payload) to the HA webhook URL."))
         return box
 
     def _build_home_assistant(self, action: Dict[str, Any]) -> Gtk.Widget:
@@ -419,7 +419,7 @@ class _ActionCard(Gtk.Box):
             warning.set_css_classes(["mp-pill", "mp-warn"])
             warning.append(Gtk.Image.new_from_icon_name("dialog-warning-symbolic"))
             warning.append(util.label(
-                "Home Assistant belum dikonfigurasi — atur koneksi dulu."
+                "Home Assistant is not configured — set up the connection first."
             ))
             box.append(warning)
         elif entity_id:
@@ -434,12 +434,12 @@ class _ActionCard(Gtk.Box):
             box.append(head)
             box.append(util.hint(entity_id))
         else:
-            box.append(util.hint("Belum ada entity dipilih."))
+            box.append(util.hint("No entity selected yet."))
 
         buttons = util.horizontal(spacing=8)
-        buttons.append(util.button("Pilih Entity", "view-list-symbolic",
+        buttons.append(util.button("Choose Entity", "view-list-symbolic",
                                    on_clicked=self._pick_entity))
-        buttons.append(util.button("Koneksi…", "network-server-symbolic",
+        buttons.append(util.button("Connection…", "network-server-symbolic",
                                    on_clicked=self._open_ha_connection))
         box.append(buttons)
 
@@ -467,8 +467,8 @@ class _ActionCard(Gtk.Box):
         box.append(row)
 
         if not entity_id:
-            box.append(util.hint("Klik “Pilih Entity” untuk memindai semua entity interaktif "
-                                 "dari /api/states."))
+            box.append(util.hint("Click “Choose Entity” to scan all interactive entities "
+                                 "from /api/states."))
         return box
 
     def _pick_entity(self, _btn) -> None:

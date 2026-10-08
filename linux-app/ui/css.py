@@ -219,7 +219,7 @@ window {
 
 
 def load_css(display) -> None:
-    """Pasang provider CSS aplikasi pada display yang diberikan."""
+    """Attach the application CSS provider to the given display."""
     import gi
     gi.require_version("Gtk", "4.0")
     from gi.repository import Gtk

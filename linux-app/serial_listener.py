@@ -19,6 +19,60 @@ import config as config_module
 CONFIG_DIR = os.path.expanduser('~/.config/samvivan-macropad')
 CONFIG_FILE = os.path.join(CONFIG_DIR, 'config.json')
 
+EVENT_PATTERN = re.compile(
+    r'\[(DESKTOP|HA)\]\s+Button\s+(\d+)\s+->\s+(SINGLE|DOUBLE|HOLD)',
+    re.IGNORECASE)
+
+
+def parse_event_line(line: str):
+    """Parse a single event line (USB serial or BLE) -> dict or None."""
+    match = EVENT_PATTERN.search(line)
+    if not match:
+        return None
+    return {
+        "mode": match.group(1).lower(),
+        "index": int(match.group(2)) - 1,
+        "trigger": match.group(3).lower(),
+    }
+
+
+def execute_button_trigger(config: Dict[str, Any],
+                           mode: str,
+                           button_index: int,
+                           trigger_event: str,
+                           on_log: Optional[Callable[[str], None]] = None):
+    """Run the actions for (mode, button, trigger) from the config.
+
+    Shared by the USB serial listener and the BLE bridge so that the
+    cable / Bluetooth always execute actions in the same way.
+    `on_log` is called for each action log line (if any).
+    """
+    mode_key = "desktop" if mode == "desktop" else "ha"
+    modes_list = config.get("modes", [])
+    active_mode_config = next((m for m in modes_list if m.get("id") == mode_key), None)
+    if not active_mode_config:
+        return
+
+    buttons = active_mode_config.get("buttons", [])
+    if button_index >= len(buttons):
+        return
+
+    btn_config = buttons[button_index]
+    actions = config_module.actions_list(btn_config.get(trigger_event))
+    for action in actions:
+        if not isinstance(action, dict) or action.get("type") in ("none", None):
+            continue
+        action_type = action.get("type")
+        print(f"[DAEMON] Executing action for Button {button_index + 1} "
+              f"({trigger_event}) -> Type: {action_type}")
+        ok, reason = execute_action(action_type, action)
+        log_msg = (f"[ACTION] B{button_index + 1} ({trigger_event.upper()}): "
+                   f"{reason} [{'OK' if ok else 'FAIL'}]")
+        print(f"[DAEMON] {log_msg}")
+        if on_log is not None:
+            on_log(log_msg)
+
+
 class SerialDaemonListener:
     def __init__(self, on_event_callback: Optional[Callable[[str], None]] = None):
         self.port: Optional[str] = None
@@ -102,7 +156,7 @@ class SerialDaemonListener:
         self.port = preferred_port
         self.thread = threading.Thread(target=self._run_loop, daemon=True)
         self.thread.start()
-        print(f"[DAEMON] Serial background listener started (searching ports)...")
+        print("[DAEMON] Serial background listener started (searching ports)...")
 
     def stop(self):
         """Stop background worker thread."""
@@ -115,9 +169,9 @@ class SerialDaemonListener:
         self.ser = None
 
     def send_command(self, command: str, log: bool = True) -> bool:
-        """Kirim satu baris perintah teks ke hardware (dipakai konsol UI)."""
+        """Send a single line of text command to the hardware (used by the UI console)."""
         if not self.ser or not self.ser.is_open:
-            print("[DAEMON] [ERROR] Serial belum terbuka — perintah tidak terkirim.")
+            print("[DAEMON] [ERROR] Serial not open — command not sent.")
             return False
         try:
             payload = (command.strip() + "\n").encode("utf-8")
@@ -126,13 +180,11 @@ class SerialDaemonListener:
                 self.on_event_callback(f"[TX] {command.strip()}")
             return True
         except Exception as e:
-            print(f"[DAEMON] [ERROR] Gagal mengirim perintah: {e}")
+            print(f"[DAEMON] [ERROR] Failed to send command: {e}")
             return False
 
     def _run_loop(self):
         """Continuously listen to serial input and auto-reconnect."""
-        pattern = re.compile(r'\[(DESKTOP|HA)\]\s+Button\s+(\d+)\s+->\s+(SINGLE|DOUBLE|HOLD)', re.IGNORECASE)
-
         while self.running:
             # 1. Connect if not open
             if not self.ser or not self.ser.is_open:
@@ -149,11 +201,11 @@ class SerialDaemonListener:
                 try:
                     self.ser = serial.Serial(target_port, self.baudrate, timeout=1)
                     self.last_connected_port = target_port
-                    msg = f"[CONNECTED] Terhubung ke port hardware: {target_port}"
+                    msg = f"[CONNECTED] Connected to hardware port: {target_port}"
                     print(f"[DAEMON] {msg}")
                     if self.on_event_callback:
                         self.on_event_callback(msg)
-                except Exception as e:
+                except Exception:
                     time.sleep(2)
                     continue
 
@@ -176,13 +228,11 @@ class SerialDaemonListener:
                     self.current_mode = "desktop"
 
                 # Parse button click event
-                match = pattern.search(line)
-                if match:
-                    mode_str = match.group(1).lower()  # "desktop" or "ha"
-                    btn_num = int(match.group(2))       # 1-8
-                    event_str = match.group(3).lower()  # "single", "double", "hold"
-
-                    self._handle_hardware_trigger(mode_str, btn_num - 1, event_str)
+                event = parse_event_line(line)
+                if event:
+                    self._handle_hardware_trigger(event["mode"],
+                                                  event["index"],
+                                                  event["trigger"])
 
             except Exception as e:
                 print(f"[DAEMON] Serial read exception: {e}")
@@ -196,27 +246,5 @@ class SerialDaemonListener:
 
     def _handle_hardware_trigger(self, mode: str, button_index: int, trigger_event: str):
         """Dispatch action based on active configuration."""
-        mode_key = "desktop" if mode == "desktop" else "ha"
-        modes_list = self.config.get("modes", [])
-        active_mode_config = next((m for m in modes_list if m.get("id") == mode_key), None)
-        if not active_mode_config:
-            return
-
-        buttons = active_mode_config.get("buttons", [])
-        if button_index >= len(buttons):
-            return
-
-        btn_config = buttons[button_index]
-        actions = config_module.actions_list(btn_config.get(trigger_event))
-        for action in actions:
-            if not isinstance(action, dict) or action.get("type") in ("none", None):
-                continue
-            action_type = action.get("type")
-            print(f"[DAEMON] Executing action for Button {button_index + 1} "
-                  f"({trigger_event}) -> Type: {action_type}")
-            ok, reason = execute_action(action_type, action)
-            log_msg = (f"[ACTION] B{button_index + 1} ({trigger_event.upper()}): "
-                       f"{reason} [{'OK' if ok else 'FAIL'}]")
-            print(f"[DAEMON] {log_msg}")
-            if self.on_event_callback:
-                self.on_event_callback(log_msg)
+        execute_button_trigger(self.config, mode, button_index, trigger_event,
+                               on_log=self.on_event_callback)

@@ -126,7 +126,7 @@ def launch_app(desktop_id_or_path: str) -> Tuple[bool, str]:
                 launcher_name = launcher_name[:-8]
             subprocess.Popen(['gtk-launch', launcher_name], start_new_session=True)
             return True, f"Launched via gtk-launch: {launcher_name}"
-        except Exception as e:
+        except Exception:
             pass
 
     # 2. Try gio launch
@@ -134,7 +134,7 @@ def launch_app(desktop_id_or_path: str) -> Tuple[bool, str]:
         try:
             subprocess.Popen(['gio', 'launch', target_path], start_new_session=True)
             return True, f"Launched via gio launch: {target_path}"
-        except Exception as e:
+        except Exception:
             pass
 
     # 3. Fallback: Parse Exec from file and run directly

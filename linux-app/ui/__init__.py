@@ -1,1 +1,1 @@
-"""UI native GTK4 + Libadwaita untuk SamVivan MacroPad."""
+"""Native GTK4 + Libadwaita UI for SamVivan MacroPad."""
