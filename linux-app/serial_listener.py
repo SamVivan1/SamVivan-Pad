@@ -59,18 +59,25 @@ def execute_button_trigger(config: Dict[str, Any],
 
     btn_config = buttons[button_index]
     actions = config_module.actions_list(btn_config.get(trigger_event))
-    for action in actions:
-        if not isinstance(action, dict) or action.get("type") in ("none", None):
-            continue
-        action_type = action.get("type")
-        print(f"[DAEMON] Executing action for Button {button_index + 1} "
-              f"({trigger_event}) -> Type: {action_type}")
-        ok, reason = execute_action(action_type, action)
-        log_msg = (f"[ACTION] B{button_index + 1} ({trigger_event.upper()}): "
-                   f"{reason} [{'OK' if ok else 'FAIL'}]")
-        print(f"[DAEMON] {log_msg}")
-        if on_log is not None:
-            on_log(log_msg)
+
+    def _run_actions() -> None:
+        for action in actions:
+            if not isinstance(action, dict) or action.get("type") in ("none", None):
+                continue
+            action_type = action.get("type")
+            print(f"[DAEMON] Executing action for Button {button_index + 1} "
+                  f"({trigger_event}) -> Type: {action_type}")
+            ok, reason = execute_action(action_type, action)
+            log_msg = (f"[ACTION] B{button_index + 1} ({trigger_event.upper()}): "
+                       f"{reason} [{'OK' if ok else 'FAIL'}]")
+            print(f"[DAEMON] {log_msg}")
+            if on_log is not None:
+                on_log(log_msg)
+
+    # Run the sequence off the GTK main loop: BLE events arrive on the main
+    # thread and a `delay` action must not freeze the UI.
+    threading.Thread(target=_run_actions, daemon=True,
+                     name="macropad-actions").start()
 
 
 class SerialDaemonListener:

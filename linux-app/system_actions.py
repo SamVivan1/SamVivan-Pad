@@ -6,6 +6,7 @@ Handles audio controls, desktop window management, screenshots, bash scripts, an
 
 import subprocess
 import shutil
+import time
 import urllib.request
 import urllib.parse
 import json
@@ -258,6 +259,16 @@ def execute_action(action_type: str, action_data: Dict[str, Any]) -> Tuple[bool,
         # 0. Toggle the Desktop <-> Home Assistant layer (handled by firmware via LED)
         if action_type == 'mode_toggle':
             return True, "Mode layer is controlled by the macropad firmware (LED)"
+
+        # 0a. Delay / wait — pauses the action sequence for N seconds.
+        elif action_type == 'delay':
+            try:
+                seconds = float(action_data.get("seconds", 0.5))
+            except (TypeError, ValueError):
+                return False, "Delay needs a valid duration."
+            seconds = max(0.0, min(seconds, 600.0))
+            time.sleep(seconds)
+            return True, f"Waited {seconds:g}s."
 
         # 0b. Keyboard / text / media simulation
         elif action_type == 'shortcut':

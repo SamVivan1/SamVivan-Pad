@@ -35,6 +35,7 @@ ACTION_TYPES: List[Tuple[str, str]] = [
     ("bash_script", "Bash Script"),
     ("home_assistant", "Home Assistant (Native)"),
     ("ha_webhook", "HA Webhook"),
+    ("delay", "Delay / Wait"),
     ("mode_toggle", "Toggle Mode (Layer)"),
 ]
 
@@ -99,6 +100,8 @@ def default_action(action_type: str) -> Dict[str, Any]:
                 "entityId": "", "friendlyName": ""}
     if action_type == "ha_webhook":
         return {"type": "ha_webhook", "url": ""}
+    if action_type == "delay":
+        return {"type": "delay", "seconds": 0.5}
     if action_type == "mode_toggle":
         return {"type": "mode_toggle"}
     return {"type": "none"}
@@ -415,6 +418,19 @@ def _action_summary_single(action: Dict[str, Any]) -> str:
         return f"HA: {name} → {action.get('service', '-')}"
     if kind == "ha_webhook":
         return f"Webhook: {action.get('url') or '-'}"
+    if kind == "delay":
+        return f"Delay {_format_seconds(action.get('seconds', 0.5))}"
     if kind == "mode_toggle":
         return "Toggle mode layer"
     return kind
+
+
+def _format_seconds(value: Any) -> str:
+    """Render a delay in seconds compactly (e.g. 1.5s, 2s, 500ms)."""
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError):
+        seconds = 0.0
+    if seconds < 1.0:
+        return f"{int(round(seconds * 1000))}ms"
+    return f"{seconds:g}s"

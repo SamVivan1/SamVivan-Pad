@@ -216,6 +216,28 @@ class _ActionCard(Gtk.Box):
             "The layer is handled by the macropad firmware (status LED)."
         )
 
+    def _build_delay(self, action: Dict[str, Any]) -> Gtk.Widget:
+        box = util.vertical(spacing=8)
+
+        row = util.horizontal(spacing=8)
+        row.append(util.label("Wait (seconds):", css=["mp-hint"]))
+        spin = Gtk.SpinButton.new_with_range(0.0, 600.0, 0.1)
+        spin.set_digits(1)
+        spin.set_numeric(True)
+        try:
+            spin.set_value(float(action.get("seconds", 0.5)))
+        except (TypeError, ValueError):
+            spin.set_value(0.5)
+        spin.connect("value-changed", lambda w: self._set_field(
+            action, "seconds", round(w.get_value(), 1)))
+        row.append(spin)
+        box.append(row)
+
+        box.append(util.hint(
+            "Pauses the workflow before the next action. Useful when an app "
+            "needs time to open, or to space out keystrokes and HA calls."))
+        return box
+
     def _build_shortcut(self, action: Dict[str, Any]) -> Gtk.Widget:
         box = util.vertical(spacing=8)
 

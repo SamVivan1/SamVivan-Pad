@@ -46,6 +46,7 @@ ACTION_ICONS = {
     "bash_script": "utilities-terminal-symbolic",
     "home_assistant": "network-server-symbolic",
     "ha_webhook": "mail-send-symbolic",
+    "delay": "alarm-symbolic",
     "mode_toggle": "view-grid-symbolic",
 }
 
