@@ -202,6 +202,12 @@ window {
   padding: 1px 8px;
 }
 
+.mp-move {
+  min-width: 26px;
+  min-height: 26px;
+  padding: 2px;
+}
+
 .mp-section-title {
   font-weight: 600;
   font-size: 0.78rem;

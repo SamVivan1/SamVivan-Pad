@@ -192,6 +192,18 @@ def remove_action(trigger: str, index: int) -> None:
     emit("button-changed", index=selected_index)
 
 
+def move_action(trigger: str, index: int, delta: int) -> None:
+    """Move an action within the trigger slot by `delta` positions (no-op if out of range)."""
+    actions = get_actions(trigger)
+    target = index + delta
+    if index < 0 or index >= len(actions) or target < 0 or target >= len(actions):
+        return
+    actions[index], actions[target] = actions[target], actions[index]
+    current_button()[trigger] = actions
+    mark_dirty()
+    emit("button-changed", index=selected_index)
+
+
 def get_actions(trigger: str) -> List[Dict[str, Any]]:
     """List of actions in the trigger slot (legacy dicts normalized to a list)."""
     return config_module.actions_list(current_button().get(trigger))

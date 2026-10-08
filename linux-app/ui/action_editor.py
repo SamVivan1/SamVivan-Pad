@@ -87,6 +87,10 @@ class ActionEditor(Gtk.Box):
         state.remove_action(self.trigger, index)
         self.refresh()
 
+    def move_action(self, index: int, delta: int) -> None:
+        state.move_action(self.trigger, index, delta)
+        self.refresh()
+
     # ------------------------------------------------------------------
     # Test every action on the trigger (threaded, result -> toast)
     # ------------------------------------------------------------------
@@ -140,6 +144,23 @@ class _ActionCard(Gtk.Box):
         self._syncing = False
         self.type_combo.connect("notify::selected", self._on_type_changed)
         head.append(self.type_combo)
+
+        total = len(editor.actions())
+        up_button = Gtk.Button(icon_name="go-up-symbolic")
+        up_button.set_css_classes(["flat", "mp-move"])
+        up_button.set_tooltip_text("Move up")
+        up_button.set_valign(Gtk.Align.CENTER)
+        up_button.set_sensitive(index > 0)
+        up_button.connect("clicked", lambda *_: self.editor.move_action(self.index, -1))
+        head.append(up_button)
+
+        down_button = Gtk.Button(icon_name="go-down-symbolic")
+        down_button.set_css_classes(["flat", "mp-move"])
+        down_button.set_tooltip_text("Move down")
+        down_button.set_valign(Gtk.Align.CENTER)
+        down_button.set_sensitive(index < total - 1)
+        down_button.connect("clicked", lambda *_: self.editor.move_action(self.index, 1))
+        head.append(down_button)
 
         remove_button = Gtk.Button(icon_name="user-trash-symbolic")
         remove_button.set_css_classes(["flat"])
