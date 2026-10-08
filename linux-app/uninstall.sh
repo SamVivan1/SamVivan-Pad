@@ -27,18 +27,25 @@ echo "[2/4] Removing the application menu shortcut and autostart entry..."
 rm -f "$APPS_DIR/samvivan-macropad.desktop" "$APPS_DIR/com.samvivan.macropad.desktop"
 rm -f "$AUTOSTART_DIR/samvivan-macropad.desktop" "$AUTOSTART_DIR/com.samvivan.macropad.desktop"
 
-# 3. Remove all application icon variations
-echo "[3/4] Removing multi-resolution application icons..."
+# 3. Remove all application & tray icon variations
+echo "[3/4] Removing application and tray icons..."
+# App icon (all installed raster sizes + scalable SVG)
 for s in 48 64 128 256 512; do
     rm -f "$ICONS_BASE/${s}x${s}/apps/samvivan-macropad.png"
 done
 rm -f "$ICONS_BASE/scalable/apps/samvivan-macropad.svg"
+# Tray icons (3 statuses x every installed size + scalable)
+find "$ICONS_BASE" -type f \( -name 'samvivan-macropad-tray*.png' -o -name 'samvivan-macropad-tray*.svg' \) -delete 2>/dev/null || true
+# Pixmaps fallbacks
 rm -f "$PIXMAPS_DIR/samvivan-macropad.png"
 rm -f "$PIXMAPS_DIR/samvivan-macropad.svg"
+# Drop now-empty app icon directories (best effort, never fail the uninstall)
+find "$ICONS_BASE" -type d -empty -delete 2>/dev/null || true
 
 # 4. Refresh the icon & desktop cache
 echo "[4/4] Refreshing the application & icon cache..."
 if command -v gtk-update-icon-cache &>/dev/null; then
+    # -t is required because we do not ship an index.theme in the user hicolor dir.
     gtk-update-icon-cache -f -t "$ICONS_BASE" 2>/dev/null || true
 fi
 if command -v update-desktop-database &>/dev/null; then

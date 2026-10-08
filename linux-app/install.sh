@@ -128,7 +128,11 @@ chmod +x "$AUTOSTART_DIR/com.samvivan.macropad.desktop"
 # 6. Refresh the icon cache and desktop database
 echo "[6/7] Refreshing icon theme cache & desktop database..."
 if command -v gtk-update-icon-cache &>/dev/null; then
-    gtk-update-icon-cache -f "$ICONS_BASE" 2>/dev/null || true
+    # -t (ignore-theme-index) is required because we intentionally do NOT ship an
+    # index.theme in ~/.local/share/icons/hicolor. Without it the cache update
+    # fails and a stale cache (e.g. left over from a previous uninstall) makes the
+    # app fall back to a generic icon in the GNOME Shell dock/menu.
+    gtk-update-icon-cache -f -t "$ICONS_BASE" 2>/dev/null || true
 fi
 if command -v update-desktop-database &>/dev/null; then
     update-desktop-database "$APPS_DIR" 2>/dev/null || true
