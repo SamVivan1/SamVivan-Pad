@@ -28,9 +28,9 @@ window {
 }
 
 .mp-key {
-  min-height: 92px;
-  padding: 12px 16px;
-  border-radius: 10px;
+  min-height: 120px;
+  padding: 14px 16px;
+  border-radius: 14px;
   border: 1px solid @borders;
   background-color: @view_bg_color;
 }
@@ -40,8 +40,10 @@ window {
 }
 
 .mp-key.mp-key-active {
-  border-color: @accent_color;
-  background-color: alpha(@accent_color, 0.10);
+  border: 3px solid @accent_color;
+  background-color: alpha(@accent_color, 0.14);
+  box-shadow: 0 0 0 2px alpha(@accent_color, 0.45),
+              0 4px 14px alpha(@accent_color, 0.30);
 }
 
 .mp-key:active,
@@ -50,79 +52,44 @@ window {
   border-color: @success_color;
 }
 
-.mp-key-index {
-  font-size: 0.72rem;
+.mp-key-number {
+  font-size: 0.82rem;
   font-weight: 800;
-  color: alpha(@view_fg_color, 0.9);
-  padding: 1px 8px;
+  min-width: 24px;
+  min-height: 24px;
   border-radius: 999px;
   background-color: alpha(@view_fg_color, 0.10);
+  color: alpha(@view_fg_color, 0.85);
 }
 
-.mp-key-pin {
-  font-size: 0.62rem;
-  color: alpha(@view_fg_color, 0.38);
+.mp-key.mp-key-active .mp-key-number {
+  background-color: @accent_color;
+  color: @accent_fg_color;
+}
+
+.mp-key-edit {
+  color: @accent_color;
 }
 
 .mp-key-label {
-  font-size: 0.94rem;
-  font-weight: 600;
+  font-size: 0.98rem;
+  font-weight: 700;
 }
 
-.mp-key-chips {
+.mp-key-actions {
   margin-top: 0;
 }
 
-.mp-key-details {
-  border-top: 1px solid alpha(@borders, 0.8);
-  padding-top: 5px;
-  margin-top: 2px;
+.mp-key-action-armed.mp-trig-single { color: @accent_color; }
+.mp-key-action-armed.mp-trig-double { color: @success_color; }
+.mp-key-action-armed.mp-trig-hold   { color: @warning_color; }
+
+.mp-key-action-empty {
+  color: alpha(@view_fg_color, 0.20);
 }
 
-.mp-key-detail-row {
-  margin-top: 2px;
-  padding: 3px 6px;
-  border-radius: 7px;
-  background-color: alpha(@view_fg_color, 0.04);
-}
-
-.mp-key-detail-row-armed {
-  background-color: alpha(@accent_color, 0.10);
-}
-
-.mp-key-trigger {
-  font-size: 0.66rem;
-  font-weight: 800;
-  color: alpha(@view_fg_color, 0.50);
-  padding: 1px 6px;
-  border-radius: 5px;
-  background-color: alpha(@view_fg_color, 0.08);
-}
-
-.mp-key-detail-row-armed .mp-key-trigger {
-  color: @accent_bg_color;
-  background-color: alpha(@accent_color, 0.16);
-}
-
-.mp-key-summary {
-  font-size: 0.72rem;
-  color: alpha(@view_fg_color, 0.80);
-}
-
-.mp-key-summary-armed {
-  color: alpha(@view_fg_color, 0.95);
-}
-
-.mp-chip {
-  font-size: 0.68rem;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background-color: alpha(@view_fg_color, 0.06);
-  color: alpha(@view_fg_color, 0.9);
-}
-
-.mp-chip-armed {
-  background-color: alpha(@accent_color, 0.18);
+.mp-accent-icon {
+  color: @accent_color;
 }
 
 .navigation-sidebar > row {
@@ -189,17 +156,40 @@ window {
 .mp-ae-card {
   background-color: alpha(@view_fg_color, 0.03);
   border: 1px solid alpha(@view_fg_color, 0.09);
+  border-left-width: 4px;
   border-radius: 10px;
-  padding: 8px;
+  padding: 8px 10px 8px 12px;
 }
 
-.mp-ae-num {
-  font-size: 0.7rem;
+.mp-ae-card.mp-ae-single { border-left-color: @accent_color; }
+.mp-ae-card.mp-ae-double { border-left-color: @success_color; }
+.mp-ae-card.mp-ae-hold   { border-left-color: @warning_color; }
+
+.mp-ae-step {
+  font-size: 0.72rem;
+  font-weight: 800;
+  min-width: 20px;
   border-radius: 999px;
-  border: 1px solid alpha(@accent_color, 0.5);
-  background-color: alpha(@accent_color, 0.16);
+  border: 1px solid alpha(@view_fg_color, 0.14);
+  background-color: alpha(@view_fg_color, 0.06);
+  padding: 1px 6px;
+}
+
+.mp-info {
+  min-width: 16px;
+  min-height: 16px;
+  color: alpha(@view_fg_color, 0.40);
+}
+
+.mp-info:hover {
   color: @accent_color;
-  padding: 1px 8px;
+}
+
+.mp-ae-empty {
+  border: 1px dashed alpha(@view_fg_color, 0.22);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: alpha(@view_fg_color, 0.55);
 }
 
 .mp-move {
@@ -218,15 +208,15 @@ window {
 .mp-trig-double { color: @success_color; }
 .mp-trig-hold { color: @warning_color; }
 
-.mp-ae-num.mp-trig-single {
+.mp-ae-step.mp-trig-single {
   border-color: alpha(@accent_color, 0.5);
   background-color: alpha(@accent_color, 0.16);
 }
-.mp-ae-num.mp-trig-double {
+.mp-ae-step.mp-trig-double {
   border-color: alpha(@success_color, 0.5);
   background-color: alpha(@success_color, 0.16);
 }
-.mp-ae-num.mp-trig-hold {
+.mp-ae-step.mp-trig-hold {
   border-color: alpha(@warning_color, 0.5);
   background-color: alpha(@warning_color, 0.16);
 }
@@ -281,6 +271,10 @@ def load_css(display) -> None:
 
     provider = Gtk.CssProvider()
     provider.load_from_data(APP_CSS.encode("utf-8"))
+    # libadwaita loads its stylesheet at PRIORITY_USER (800), which would
+    # otherwise override any app styling on Adwaita widgets such as
+    # Gtk.Button. Our rules are scoped to mp-* classes, so sitting just above
+    # libadwaita is safe and makes the custom card/tab styling apply.
     Gtk.StyleContext.add_provider_for_display(
-        display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        display, provider, Gtk.STYLE_PROVIDER_PRIORITY_USER + 10
     )

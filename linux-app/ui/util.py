@@ -37,18 +37,76 @@ DOMAIN_ICONS = {
 }
 
 ACTION_ICONS = {
-    "none": "face-sad-symbolic",
+    "none": "action-unavailable-symbolic",
     "shortcut": "input-keyboard-symbolic",
     "text": "text-x-generic-symbolic",
     "media": "audio-volume-high-symbolic",
     "launch_app": "system-run-symbolic",
     "system_action": "applications-system-symbolic",
     "bash_script": "utilities-terminal-symbolic",
-    "home_assistant": "network-server-symbolic",
+    "home_assistant": "go-home-symbolic",
     "ha_webhook": "mail-send-symbolic",
     "delay": "alarm-symbolic",
     "mode_toggle": "view-grid-symbolic",
 }
+
+# Compact names used in the icon-driven action-type selector.
+ACTION_SHORT = {
+    "none": "None",
+    "shortcut": "Shortcut",
+    "text": "Text",
+    "media": "Media",
+    "launch_app": "App",
+    "system_action": "System",
+    "bash_script": "Script",
+    "home_assistant": "Home Assistant",
+    "ha_webhook": "Webhook",
+    "delay": "Delay",
+    "mode_toggle": "Mode",
+}
+
+# One-line explanations, surfaced through the card's ⓘ tooltip instead of
+# printed inline (keeps the editor compact when many actions are stacked).
+ACTION_HINTS = {
+    "none": "Empty slot. Pick a type from the menu, or use the trash button "
+            "to remove it.",
+    "shortcut": "Sends a keyboard shortcut to the active window.",
+    "text": "Types this text as keystrokes into the active window.",
+    "media": "Controls volume or media playback (wpctl/pactl/playerctl).",
+    "launch_app": "Launches an installed desktop application.",
+    "system_action": "Runs a built-in system action preset.",
+    "bash_script": "Runs the script with /bin/bash in the background.",
+    "home_assistant": "Calls a Home Assistant service on the chosen entity.",
+    "ha_webhook": "POSTs an empty JSON body to a Home Assistant webhook URL.",
+    "delay": "Pauses the action sequence before the next action.",
+    "mode_toggle": "Switches the layer between Desktop and Home Assistant mode "
+                   "(handled by the macropad firmware / status LED).",
+}
+
+MEDIA_ICONS = {
+    "MUTE": "audio-volume-muted-symbolic",
+    "VOL_UP": "audio-volume-high-symbolic",
+    "VOL_DOWN": "audio-volume-low-symbolic",
+    "PLAY_PAUSE": "media-playback-start-symbolic",
+    "NEXT_TRACK": "media-skip-forward-symbolic",
+    "PREV_TRACK": "media-skip-backward-symbolic",
+}
+
+
+def system_preset_icon(preset) -> str:
+    """Best-effort symbolic icon for a system-action preset."""
+    pid = str(preset.get("id", "")).lower()
+    if "volume" in pid or "mute" in pid:
+        return "audio-volume-high-symbolic"
+    if "lock" in pid:
+        return "changes-prevent-symbolic"
+    if "terminal" in pid:
+        return "utilities-terminal-symbolic"
+    if "screenshot" in pid:
+        return "applets-screenshooter-symbolic"
+    if "media" in pid or "play" in pid:
+        return "media-playback-start-symbolic"
+    return "applications-system-symbolic"
 
 
 def domain_icon(domain: str, theme=None) -> str:
@@ -141,3 +199,63 @@ def button(text: str, icon_name: Optional[str] = None, css: Optional[List[str]] 
     if on_clicked is not None:
         widget.connect("clicked", on_clicked, *args)
     return widget
+
+
+def icon_button(icon_name: str, tooltip: str,
+                on_clicked: Optional[Callable] = None,
+                css: Optional[List[str]] = None, *args):
+    """Compact icon-only button with a tooltip (keeps the UI text-light)."""
+    from gi.repository import Gtk
+    widget = Gtk.Button(icon_name=icon_name)
+    widget.set_tooltip_text(tooltip)
+    if css:
+        widget.set_css_classes(css)
+    if on_clicked is not None:
+        widget.connect("clicked", on_clicked, *args)
+    return widget
+
+
+def info_icon(text: str):
+    """Small ⓘ glyph whose tooltip carries an explanation (no inline text)."""
+    from gi.repository import Gtk
+    widget = Gtk.Image.new_from_icon_name("help-about-symbolic")
+    widget.set_css_classes(["mp-info"])
+    widget.set_tooltip_text(text)
+    widget.set_valign(Gtk.Align.CENTER)
+    return widget
+
+
+def icon_dropdown(items, css: Optional[List[str]] = None):
+    """A DropDown whose rows show an icon + label.
+
+    `items` is a list of (key, label, icon_name) tuples, in display order.
+    Use `set_selected(index)` / `get_selected()` / `notify::selected` as usual.
+    """
+    from gi.repository import Gtk
+
+    dropdown = Gtk.DropDown.new_from_strings([label for _key, label, _icon in items])
+    factory = Gtk.SignalListItemFactory()
+
+    def setup(_factory, list_item):
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        row.append(Gtk.Image())
+        row.append(Gtk.Label(xalign=0.0))
+        list_item.set_child(row)
+
+    def bind(_factory, list_item):
+        position = list_item.get_position()
+        if not 0 <= position < len(items):
+            return
+        _key, label, icon_name = items[position]
+        row = list_item.get_child()
+        image = row.get_first_child()
+        text = image.get_next_sibling()
+        image.set_from_icon_name(icon_name)
+        text.set_text(label)
+
+    factory.connect("setup", setup)
+    factory.connect("bind", bind)
+    dropdown.set_factory(factory)
+    if css:
+        dropdown.set_css_classes(css)
+    return dropdown

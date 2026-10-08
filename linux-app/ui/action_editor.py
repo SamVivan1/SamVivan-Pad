@@ -5,6 +5,10 @@ SamVivan MacroPad - Action editor per trigger (Single / Double / Hold).
 Each trigger can hold multiple actions. `ActionEditor` hosts a list of
 `_ActionCard` widgets (one per action) with a "+" button to add and an "×"
 button to remove. Every change writes straight to state and emits an event.
+
+The editor is deliberately compact: the action type is chosen through an
+icon-driven menu, per-type explanations live in a ⓘ tooltip, and every card
+carries a colour bar + step number so a long stack stays readable.
 """
 
 from typing import Any, Dict, List
@@ -24,10 +28,6 @@ def _copy_action(action: Dict[str, Any]) -> Dict[str, Any]:
     return copy.deepcopy(action)
 
 
-# Short prefix shown on cards so each action identifies its trigger at a glance.
-_TRIGGER_PREFIX = {"single": "1x", "double": "2x", "hold": "Hold"}
-
-
 class ActionEditor(Gtk.Box):
     """Editor for a single trigger: action list + add button."""
 
@@ -37,26 +37,24 @@ class ActionEditor(Gtk.Box):
         self.trigger = trigger
         self._cards: List["_ActionCard"] = []
 
-        head = util.horizontal(spacing=8)
-        title = util.label(trigger_label,
-                           css=["mp-trigger-title", f"mp-trig-{trigger}"])
-        title.set_hexpand(True)
-        head.append(title)
+        toolbar = util.horizontal(spacing=4)
+        toolbar.set_css_classes(["mp-ae-toolbar"])
+        spacer = Gtk.Box()
+        spacer.set_hexpand(True)
+        toolbar.append(spacer)
 
-        test_all = util.button("Test All", "media-playback-start-symbolic",
-                               ["suggested-action", "flat"],
-                               self._test_all)
-        test_all.set_valign(Gtk.Align.CENTER)
-        head.append(test_all)
+        test_all = util.icon_button(
+            "media-playback-start-symbolic",
+            "Test every action on this trigger", self._test_all,
+            ["flat", "mp-move"])
+        toolbar.append(test_all)
 
-        add_button = Gtk.Button(icon_name="list-add-symbolic")
-        add_button.set_css_classes(["flat"])
-        add_button.set_tooltip_text("Add action")
-        add_button.set_valign(Gtk.Align.CENTER)
-        add_button.connect("clicked", self._add_action)
-        head.append(add_button)
+        add_button = util.icon_button(
+            "list-add-symbolic", "Add an action", self._add_action,
+            ["flat", "suggested-action", "mp-move"])
+        toolbar.append(add_button)
+        self.append(toolbar)
 
-        self.append(head)
         self.content = util.vertical(spacing=8)
         self.append(self.content)
 
@@ -128,55 +126,54 @@ class _ActionCard(Gtk.Box):
     def __init__(self, editor: ActionEditor, index: int,
                  action: Dict[str, Any]) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        self.set_css_classes(["mp-ae-card"])
+        self.set_css_classes(["mp-ae-card", f"mp-ae-{editor.trigger}"])
         self.editor = editor
         self.index = index
         self.action = action
         self._syncing = False
 
         head = util.horizontal(spacing=6)
-        prefix = _TRIGGER_PREFIX.get(editor.trigger)
-        badge_text = f"{prefix} · A{index + 1}" if prefix else f"A{index + 1}"
-        number = util.label(badge_text,
-                            css=["mp-ae-num", f"mp-trig-{editor.trigger}"])
-        number.set_xalign(0.5)
-        number.set_valign(Gtk.Align.CENTER)
-        head.append(number)
 
-        self.type_combo = Gtk.DropDown.new_from_strings(
-            [label for _, label in config_module.ACTION_TYPES]
-        )
+        step = util.label(str(index + 1),
+                          css=["mp-ae-step", f"mp-trig-{editor.trigger}"])
+        step.set_xalign(0.5)
+        step.set_valign(Gtk.Align.CENTER)
+        head.append(step)
+
+        self.type_combo = util.icon_dropdown(self._type_items())
         self.type_combo.set_hexpand(True)
+        self.type_combo.set_valign(Gtk.Align.CENTER)
         self._syncing = True
         self.type_combo.set_selected(self._current_index())
         self._syncing = False
         self.type_combo.connect("notify::selected", self._on_type_changed)
         head.append(self.type_combo)
 
+        self.info = util.info_icon(
+            util.ACTION_HINTS.get(action.get("type", "none"), ""))
+        head.append(self.info)
+
         total = len(editor.actions())
-        up_button = Gtk.Button(icon_name="go-up-symbolic")
-        up_button.set_css_classes(["flat", "mp-move"])
-        up_button.set_tooltip_text("Move up")
-        up_button.set_valign(Gtk.Align.CENTER)
+        up_button = util.icon_button(
+            "go-up-symbolic", "Move up",
+            lambda *_: self.editor.move_action(self.index, -1),
+            ["flat", "mp-move"])
         up_button.set_sensitive(index > 0)
-        up_button.connect("clicked", lambda *_: self.editor.move_action(self.index, -1))
         head.append(up_button)
 
-        down_button = Gtk.Button(icon_name="go-down-symbolic")
-        down_button.set_css_classes(["flat", "mp-move"])
-        down_button.set_tooltip_text("Move down")
-        down_button.set_valign(Gtk.Align.CENTER)
+        down_button = util.icon_button(
+            "go-down-symbolic", "Move down",
+            lambda *_: self.editor.move_action(self.index, 1),
+            ["flat", "mp-move"])
         down_button.set_sensitive(index < total - 1)
-        down_button.connect("clicked", lambda *_: self.editor.move_action(self.index, 1))
         head.append(down_button)
 
-        remove_button = Gtk.Button(icon_name="user-trash-symbolic")
-        remove_button.set_css_classes(["flat"])
-        remove_button.set_tooltip_text("Remove this action")
-        remove_button.set_valign(Gtk.Align.CENTER)
-        remove_button.connect("clicked",
-                              lambda _b: self.editor.remove_action(self.index))
+        remove_button = util.icon_button(
+            "user-trash-symbolic", "Remove this action",
+            lambda *_: self.editor.remove_action(self.index),
+            ["flat", "mp-move"])
         head.append(remove_button)
+
         self.append(head)
 
         self.content = util.vertical(spacing=6)
@@ -184,6 +181,13 @@ class _ActionCard(Gtk.Box):
         self._rebuild()
 
     # ------------------------------------------------------------------
+    def _type_items(self) -> List[Any]:
+        return [
+            (type_id, util.ACTION_SHORT.get(type_id, label),
+             util.action_icon(type_id))
+            for type_id, label in config_module.ACTION_TYPES
+        ]
+
     def _type_ids(self) -> List[str]:
         return [type_id for type_id, _ in config_module.ACTION_TYPES]
 
@@ -209,6 +213,9 @@ class _ActionCard(Gtk.Box):
             self.content.remove(child)
             child = following
 
+        self.info.set_tooltip_text(
+            util.ACTION_HINTS.get(self.action.get("type", "none"), ""))
+
         builder = getattr(self, f"_build_{self.action.get('type', 'none')}",
                           None)
         if builder is None:
@@ -218,38 +225,45 @@ class _ActionCard(Gtk.Box):
             self.content.append(widget)
 
     # ------------------------------------------------------------------
-    # Test action (always threaded, result -> toast)
-    # ------------------------------------------------------------------
-    def _test_action(self, _btn=None) -> None:
-        action = _copy_action(self.action)
-        util.run_async(
-            lambda: execute_action(action.get("type", "none"), action),
-            lambda result: util.toast_result(self.editor.window, result, "Test: "),
-        )
-
     def _test_button(self) -> Gtk.Widget:
-        return util.button("Test", "media-playback-start-symbolic",
-                           css=["suggested-action", "flat"],
-                           on_clicked=self._test_action)
+        return util.icon_button(
+            "media-playback-start-symbolic", "Test this action",
+            self._test_action, ["flat", "suggested-action", "mp-move"])
+
+    def _test_row(self) -> Gtk.Box:
+        row = util.horizontal(spacing=6)
+        row.append(self._test_button())
+        return row
 
     # ------------------------------------------------------------------
-    # Builders per action type
+    # Test this action on its own (threaded, result -> toast)
+    # ------------------------------------------------------------------
+    def _test_action(self, _button) -> None:
+        action = _copy_action(self.action)
+
+        def work():
+            return execute_action(action.get("type", "none"), action)
+
+        util.run_async(work, lambda result: util.toast_result(
+            self.editor.window, result, "Test: "))
+
+    # ------------------------------------------------------------------
+    # Per-type builders (controls only — explanations live in the ⓘ tooltip)
     # ------------------------------------------------------------------
     def _build_none(self, _action) -> Gtk.Widget:
-        return util.hint("No action in this slot — pick a type to enable it, "
-                         "or use the × button to remove the slot.")
+        placeholder = util.horizontal(spacing=8)
+        placeholder.set_css_classes(["mp-ae-empty"])
+        placeholder.append(Gtk.Image.new_from_icon_name("list-add-symbolic"))
+        placeholder.append(util.label("Empty slot", css=["mp-hint"]))
+        return placeholder
 
     def _build_mode_toggle(self, _action) -> Gtk.Widget:
-        return util.hint(
-            "Switches the layer between Desktop Mode and Home Assistant Mode. "
-            "The layer is handled by the macropad firmware (status LED)."
-        )
+        return util.vertical(spacing=0)
 
     def _build_delay(self, action: Dict[str, Any]) -> Gtk.Widget:
-        box = util.vertical(spacing=8)
-
+        box = util.vertical(spacing=6)
         row = util.horizontal(spacing=8)
-        row.append(util.label("Wait (seconds):", css=["mp-hint"]))
+        row.append(Gtk.Image.new_from_icon_name("alarm-symbolic"))
         spin = Gtk.SpinButton.new_with_range(0.0, 600.0, 0.1)
         spin.set_digits(1)
         spin.set_numeric(True)
@@ -260,11 +274,8 @@ class _ActionCard(Gtk.Box):
         spin.connect("value-changed", lambda w: self._set_field(
             action, "seconds", round(w.get_value(), 1)))
         row.append(spin)
+        row.append(util.label("seconds", css=["mp-hint"]))
         box.append(row)
-
-        box.append(util.hint(
-            "Pauses the workflow before the next action. Useful when an app "
-            "needs time to open, or to space out keystrokes and HA calls."))
         return box
 
     def _build_shortcut(self, action: Dict[str, Any]) -> Gtk.Widget:
@@ -292,13 +303,11 @@ class _ActionCard(Gtk.Box):
                       lambda w, *_: self._set_field(action, "key", keys[w.get_selected()]))
 
         row = util.horizontal(spacing=8)
-        row.append(util.label("Target Key:", css=["mp-hint"]))
+        row.append(Gtk.Image.new_from_icon_name("input-keyboard-symbolic"))
         row.append(combo)
         box.append(row)
 
-        test_row = util.horizontal(spacing=8)
-        test_row.append(self._test_button())
-        box.append(test_row)
+        box.append(self._test_row())
         return box
 
     def _on_modifier_toggle(self, button: Gtk.ToggleButton, modifier: str,
@@ -323,10 +332,7 @@ class _ActionCard(Gtk.Box):
         scroll.set_min_content_height(64)
         scroll.set_child(view)
         box.append(scroll)
-
-        row = util.horizontal(spacing=8)
-        row.append(self._test_button())
-        box.append(row)
+        box.append(self._test_row())
         return box
 
     def _on_text_changed(self, buffer, action: Dict[str, Any]) -> None:
@@ -338,9 +344,12 @@ class _ActionCard(Gtk.Box):
     def _build_media(self, action: Dict[str, Any]) -> Gtk.Widget:
         box = util.vertical(spacing=8)
         media_ids = [media_id for media_id, _ in config_module.MEDIA_ACTIONS]
-        combo = Gtk.DropDown.new_from_strings(
-            [label for _, label in config_module.MEDIA_ACTIONS]
-        )
+        items = [
+            (media_id, label,
+             util.MEDIA_ICONS.get(media_id, "audio-volume-high-symbolic"))
+            for media_id, label in config_module.MEDIA_ACTIONS
+        ]
+        combo = util.icon_dropdown(items)
         try:
             combo.set_selected(media_ids.index(action.get("mediaKey", "VOL_UP")))
         except ValueError:
@@ -348,11 +357,7 @@ class _ActionCard(Gtk.Box):
         combo.connect("notify::selected", lambda w, *_: self._set_field(
             action, "mediaKey", media_ids[w.get_selected()]))
         box.append(combo)
-
-        row = util.horizontal(spacing=8)
-        row.append(self._test_button())
-        box.append(row)
-        box.append(util.hint("Volume uses wpctl/pactl; media playback uses playerctl."))
+        box.append(self._test_row())
         return box
 
     def _build_launch_app(self, action: Dict[str, Any]) -> Gtk.Widget:
@@ -360,19 +365,22 @@ class _ActionCard(Gtk.Box):
 
         name = action.get("appName") or action.get("desktopId") or "Not selected"
         row = util.horizontal(spacing=8)
+        row.append(Gtk.Image.new_from_icon_name("system-run-symbolic"))
         label_widget = util.label(name)
         label_widget.set_hexpand(True)
         label_widget.set_ellipsize(Pango.EllipsizeMode.END)
         row.append(label_widget)
-        row.append(util.button("Choose…", "view-more-symbolic", None,
-                               self._pick_app, action))
+
+        choose = util.icon_button("view-more-symbolic", "Choose an application",
+                                  self._pick_app, ["flat", "mp-move"], action)
+        row.append(choose)
         row.append(self._test_button())
         box.append(row)
 
         if action.get("desktopId"):
-            box.append(util.hint(f"Desktop entry: {action['desktopId']}"))
-        else:
-            box.append(util.hint("No application selected."))
+            self.info.set_tooltip_text(
+                f"{util.ACTION_HINTS['launch_app']}\nDesktop entry: "
+                f"{action['desktopId']}")
         return box
 
     def _pick_app(self, _btn, action: Dict[str, Any]) -> None:
@@ -391,34 +399,35 @@ class _ActionCard(Gtk.Box):
         box = util.vertical(spacing=8)
         presets = SYSTEM_ACTION_PRESETS
         preset_ids = [preset["id"] for preset in presets]
-        combo = Gtk.DropDown.new_from_strings(
-            [f"{preset['name']}  ·  {preset['category']}" for preset in presets]
-        )
+        items = [
+            (preset["id"], preset["name"], util.system_preset_icon(preset))
+            for preset in presets
+        ]
+        combo = util.icon_dropdown(items)
         try:
             combo.set_selected(preset_ids.index(action.get("presetId", "")))
         except ValueError:
             combo.set_selected(0)
 
-        description = util.hint("")
-        box.append(combo)
-        box.append(description)
-
         def on_selected(widget, *_args) -> None:
             preset = presets[widget.get_selected()]
             action["presetId"] = preset["id"]
             action["presetName"] = preset["name"]
-            description.set_text(preset["description"])
+            description = preset.get("description", "")
+            if description:
+                self.info.set_tooltip_text(description)
             state.mark_dirty()
             state.emit("button-changed", index=state.selected_index)
 
         combo.connect("notify::selected", on_selected)
         selected = combo.get_selected()
         if 0 <= selected < len(presets):
-            description.set_text(presets[selected]["description"])
+            description = presets[selected].get("description", "")
+            if description:
+                self.info.set_tooltip_text(description)
 
-        row = util.horizontal(spacing=8)
-        row.append(self._test_button())
-        box.append(row)
+        box.append(combo)
+        box.append(self._test_row())
         return box
 
     def _build_bash_script(self, action: Dict[str, Any]) -> Gtk.Widget:
@@ -431,11 +440,7 @@ class _ActionCard(Gtk.Box):
         scroll.set_min_content_height(72)
         scroll.set_child(view)
         box.append(scroll)
-
-        row = util.horizontal(spacing=8)
-        row.append(self._test_button())
-        box.append(row)
-        box.append(util.hint("Runs with /bin/bash in the background."))
+        box.append(self._test_row())
         return box
 
     def _on_script_changed(self, buffer, action: Dict[str, Any]) -> None:
@@ -451,11 +456,7 @@ class _ActionCard(Gtk.Box):
         entry.set_hexpand(True)
         entry.connect("changed", lambda w: self._set_field(action, "url", w.get_text()))
         box.append(entry)
-
-        row = util.horizontal(spacing=8)
-        row.append(self._test_button())
-        box.append(row)
-        box.append(util.hint("POSTs an empty JSON body (extendable via payload) to the HA webhook URL."))
+        box.append(self._test_row())
         return box
 
     def _build_home_assistant(self, action: Dict[str, Any]) -> Gtk.Widget:
@@ -469,9 +470,7 @@ class _ActionCard(Gtk.Box):
             warning = util.horizontal(spacing=6)
             warning.set_css_classes(["mp-pill", "mp-warn"])
             warning.append(Gtk.Image.new_from_icon_name("dialog-warning-symbolic"))
-            warning.append(util.label(
-                "Home Assistant is not configured — set up the connection first."
-            ))
+            warning.append(util.label("Home Assistant not configured"))
             box.append(warning)
         elif entity_id:
             head = util.horizontal(spacing=8)
@@ -480,15 +479,17 @@ class _ActionCard(Gtk.Box):
             name_label = util.label(action.get("friendlyName") or entity_id,
                                     css=["mp-entity-name"])
             name_label.set_hexpand(True)
+            name_label.set_ellipsize(Pango.EllipsizeMode.END)
+            name_label.set_tooltip_text(entity_id)
             head.append(name_label)
-            head.append(util.label(f"Domain: {domain}", css=["mp-hint"]))
             box.append(head)
-            box.append(util.hint(entity_id))
+            self.info.set_tooltip_text(f"{util.ACTION_HINTS['home_assistant']}\n"
+                                       f"{entity_id}")
         else:
-            box.append(util.hint("No entity selected yet."))
+            box.append(util.label("No entity selected", css=["mp-hint"]))
 
         buttons = util.horizontal(spacing=8)
-        buttons.append(util.button("Choose Entity", "view-list-symbolic",
+        buttons.append(util.button("Entity", "view-list-symbolic",
                                    on_clicked=self._pick_entity))
         buttons.append(util.button("Connection…", "network-server-symbolic",
                                    on_clicked=self._open_ha_connection))
@@ -516,10 +517,6 @@ class _ActionCard(Gtk.Box):
         test_btn.set_sensitive(can_test)
         row.append(test_btn)
         box.append(row)
-
-        if not entity_id:
-            box.append(util.hint("Click “Choose Entity” to scan all interactive entities "
-                                 "from /api/states."))
         return box
 
     def _pick_entity(self, _btn) -> None:
